@@ -1,12 +1,10 @@
 // Implements a wrapper for the Posting List
 
-use std::iter::{self, Chain, Scan, Once, Peekable};
+use std::iter::{self, Chain, Once, Peekable, Scan};
 use std::num::Wrapping;
 use std::u32;
 
 use super::postentry::PostEntry;
-
-
 
 pub struct TakeWhilePeek<'a, I: 'a + Iterator<Item = PostEntry>> {
     trigram: u32,
@@ -20,10 +18,7 @@ impl<'a, I: 'a + Iterator<Item = PostEntry>> TakeWhilePeek<'a, I> {
         } else {
             return None;
         };
-        Some(TakeWhilePeek {
-            trigram: t,
-            it: it,
-        })
+        Some(TakeWhilePeek { trigram: t, it: it })
     }
     pub fn trigram(&self) -> u32 {
         self.trigram
@@ -59,13 +54,14 @@ fn transform(delta: &mut u32, x: u32) -> Option<u32> {
     Some(diff)
 }
 
-
 #[test]
 fn test_into_iter() {
-    let v = vec![PostEntry::new(100, 1),
-                 PostEntry::new(100, 6),
-                 PostEntry::new(100, 7),
-                 PostEntry::new(100, 8)];
+    let v = vec![
+        PostEntry::new(100, 1),
+        PostEntry::new(100, 6),
+        PostEntry::new(100, 7),
+        PostEntry::new(100, 8),
+    ];
     let result = {
         let mut it = v.clone().into_iter().peekable();
         let p = TakeWhilePeek::new(&mut it).unwrap();
@@ -77,10 +73,12 @@ fn test_into_iter() {
 
 #[test]
 fn test_to_diffs() {
-    let v = vec![PostEntry::new(100, 1),
-                 PostEntry::new(100, 6),
-                 PostEntry::new(100, 7),
-                 PostEntry::new(100, 8)];
+    let v = vec![
+        PostEntry::new(100, 1),
+        PostEntry::new(100, 6),
+        PostEntry::new(100, 7),
+        PostEntry::new(100, 8),
+    ];
     let mut it = v.clone().into_iter().peekable();
     let chunk = TakeWhilePeek::new(&mut it).unwrap();
     let result = to_diffs(chunk.map(|p| p.file_id())).collect::<Vec<_>>();
@@ -89,7 +87,11 @@ fn test_to_diffs() {
 
 #[test]
 fn test_dont_consume_next_trigram() {
-    let v = vec![PostEntry::new(100, 1), PostEntry::new(100, 6), PostEntry::new(101, 8)];
+    let v = vec![
+        PostEntry::new(100, 1),
+        PostEntry::new(100, 6),
+        PostEntry::new(101, 8),
+    ];
     let mut it = v.clone().into_iter().peekable();
     {
         let chunk = TakeWhilePeek::new(&mut it).unwrap();

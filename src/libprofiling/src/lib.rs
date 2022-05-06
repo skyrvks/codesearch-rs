@@ -1,5 +1,3 @@
-
-
 #[cfg(feature = "profile")]
 #[macro_use]
 mod profiling {

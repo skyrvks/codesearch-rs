@@ -6,10 +6,10 @@
 extern crate clap;
 extern crate log;
 
-extern crate libcustomlogger;
 extern crate libcsearch;
+extern crate libcustomlogger;
 
-use libcsearch::reader::{POST_ENTRY_SIZE, IndexReader};
+use libcsearch::reader::{IndexReader, POST_ENTRY_SIZE};
 use libcsearch::regexp::Query;
 
 use std::collections::BTreeSet;
@@ -23,22 +23,30 @@ fn main() {
         .version(&crate_version!()[..])
         .author("Vernon Jones <vernonrjones@gmail.com>")
         .about("helper tool to inspect index files")
-        .arg(clap::Arg::with_name("INDEX_FILE")
-            .long("indexpath")
-            .takes_value(true)
-            .help("use specified INDEX_FILE as the index path. overwrites $CSEARCHINDEX."))
-        .arg(clap::Arg::with_name("files")
-            .long("files")
-            .short("f")
-            .help("list indexed files"))
-        .arg(clap::Arg::with_name("with-trigram")
-            .long("with-trigram")
-            .short("t")
-            .help("list all files that contain trigram")
-            .takes_value(true))
-        .arg(clap::Arg::with_name("postinglist")
-            .long("posting-list")
-            .help("Prints the posting list"))
+        .arg(
+            clap::Arg::with_name("INDEX_FILE")
+                .long("indexpath")
+                .takes_value(true)
+                .help("use specified INDEX_FILE as the index path. overwrites $CSEARCHINDEX."),
+        )
+        .arg(
+            clap::Arg::with_name("files")
+                .long("files")
+                .short("f")
+                .help("list indexed files"),
+        )
+        .arg(
+            clap::Arg::with_name("with-trigram")
+                .long("with-trigram")
+                .short("t")
+                .help("list all files that contain trigram")
+                .takes_value(true),
+        )
+        .arg(
+            clap::Arg::with_name("postinglist")
+                .long("posting-list")
+                .help("Prints the posting list"),
+        )
         .get_matches();
 
     // possibly override the csearchindex
@@ -48,7 +56,6 @@ fn main() {
 
     let index_path = libcsearch::csearch_index();
     let idx = IndexReader::open(index_path).unwrap();
-
 
     if matches.is_present("files") {
         print_indexed_files(&idx);
@@ -67,7 +74,6 @@ fn main() {
         let file_ids = libcsearch::reader::PostReader::list(&idx, t_num, &mut h);
         println!("{:?}", file_ids);
     }
-
 }
 
 fn print_indexed_files(idx: &IndexReader) {
@@ -86,11 +92,13 @@ fn dump_posting_list(idx: &IndexReader) -> io::Result<()> {
             .0
     };
     for i in 0..idx.num_post {
-        try!(writeln!(&mut std::io::stdout(),
-                      "{} {} {}",
-                      d[i * POST_ENTRY_SIZE],
-                      d[i * POST_ENTRY_SIZE + 1],
-                      d[i * POST_ENTRY_SIZE + 2]));
+        try!(writeln!(
+            &mut std::io::stdout(),
+            "{} {} {}",
+            d[i * POST_ENTRY_SIZE],
+            d[i * POST_ENTRY_SIZE + 1],
+            d[i * POST_ENTRY_SIZE + 2]
+        ));
     }
     Ok(())
 }

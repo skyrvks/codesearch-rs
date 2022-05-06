@@ -12,7 +12,6 @@ pub mod regexp;
 
 use std::env;
 
-
 pub fn csearch_index() -> String {
     env::var("CSEARCHINDEX")
         .or_else(|_| {

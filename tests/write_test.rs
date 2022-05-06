@@ -7,15 +7,13 @@ mod common;
 
 use std::collections::BTreeMap;
 use std::io::Read;
-use std::ops::DerefMut;
 use std::num::Wrapping;
+use std::ops::DerefMut;
 use std::u32;
 
 use self::tempfile::NamedTempFile;
 
-
 use common::build_flush_index;
-
 
 fn trivial_files() -> BTreeMap<&'static str, &'static str> {
     let mut d = BTreeMap::new();
@@ -80,7 +78,9 @@ fn trivial_index() -> Vec<u8> {
     s.extend_from_slice(&mut u32_to_vec(6 + 1 + 2 + 1 + 5 + 1));
     s.extend_from_slice(&mut u32_to_vec(6 + 1 + 2 + 1 + 5 + 1 + 5 + 1));
     s.extend_from_slice(&mut u32_to_vec(6 + 1 + 2 + 1 + 5 + 1 + 5 + 1 + 5 + 1));
-    s.extend_from_slice(&mut u32_to_vec(6 + 1 + 2 + 1 + 5 + 1 + 5 + 1 + 5 + 1 + 8 + 1));
+    s.extend_from_slice(&mut u32_to_vec(
+        6 + 1 + 2 + 1 + 5 + 1 + 5 + 1 + 5 + 1 + 8 + 1,
+    ));
 
     // posting list index,
     s.extend("\na\n".as_bytes());
@@ -185,11 +185,13 @@ fn test_write(do_flush: bool) {
         while i < data.len() && i < want.len() && data[i] == want[i] {
             i += 1;
         }
-        panic!("wrong index:\nhave {:?} {:?}\nwant {:?} {:?}\ncommon bytes: {}",
-               &data[..i],
-               &data[i..],
-               &want[..i],
-               &want[i..],
-               i);
+        panic!(
+            "wrong index:\nhave {:?} {:?}\nwant {:?} {:?}\ncommon bytes: {}",
+            &data[..i],
+            &data[i..],
+            &want[..i],
+            &want[i..],
+            i
+        );
     }
 }

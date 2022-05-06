@@ -4,7 +4,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 // Merging indexes.
 //
 // To merge two indexes A and B (newer) into a combined index C:
@@ -32,28 +31,26 @@
 // Rename C's index onto the new index.
 
 use libcsearch::reader::IndexReader;
-use writer::{get_offset, copy_file};
 use libprofiling;
+use writer::{copy_file, get_offset};
 
-use tempfile::tempfile;
 use byteorder::{BigEndian, WriteBytesExt};
 use consts;
+use tempfile::tempfile;
 
-use super::postmapreader::{IdRange, PostMapReader};
 use super::postdatawriter::PostDataWriter;
+use super::postmapreader::{IdRange, PostMapReader};
 
-use std::io::{self, Write, Seek, SeekFrom, BufReader, BufWriter};
-use std::u32;
 use std::fs::File;
+use std::io::{self, BufReader, BufWriter, Seek, SeekFrom, Write};
 use std::path::Path;
-
-
-
+use std::u32;
 
 pub fn merge<P1, P2, P3>(dest: P1, src1: P2, src2: P3) -> io::Result<()>
-    where P1: AsRef<Path>,
-          P2: AsRef<Path>,
-          P3: AsRef<Path>
+where
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
+    P3: AsRef<Path>,
 {
     let _frame_merge = libprofiling::profile("merge");
     let ix1 = try!(IndexReader::open(src1));
@@ -168,7 +165,9 @@ pub fn merge<P1, P2, P3>(dest: P1, src1: P2, src2: P3) -> io::Result<()>
             for i in map1[mi1].low..map1[mi1].high {
                 let name = ix1.name(i);
                 let new_offset: u32 = try!(get_offset(&mut ix3)) as u32;
-                name_index_file.write_u32::<BigEndian>(new_offset - (name_data as u32)).unwrap();
+                name_index_file
+                    .write_u32::<BigEndian>(new_offset - (name_data as u32))
+                    .unwrap();
                 try!(ix3.write(&name.as_bytes()));
                 try!(ix3.write("\0".as_bytes()));
                 new += 1;
@@ -178,7 +177,9 @@ pub fn merge<P1, P2, P3>(dest: P1, src1: P2, src2: P3) -> io::Result<()>
             for i in map2[mi2].low..map2[mi2].high {
                 let name = ix2.name(i);
                 let new_offset: u32 = try!(get_offset(&mut ix3)) as u32;
-                name_index_file.write_u32::<BigEndian>(new_offset - (name_data as u32)).unwrap();
+                name_index_file
+                    .write_u32::<BigEndian>(new_offset - (name_data as u32))
+                    .unwrap();
                 try!(ix3.write(&name.as_bytes()));
                 try!(ix3.write("\0".as_bytes()));
                 new += 1;
@@ -191,31 +192,38 @@ pub fn merge<P1, P2, P3>(dest: P1, src1: P2, src2: P3) -> io::Result<()>
     if ((new * 4) as u64) != try!(get_offset(&mut name_index_file)) {
         panic!("merge: inconsistent index");
     }
-    name_index_file.write_u32::<BigEndian>(try!(get_offset(&mut ix3)) as u32).unwrap();
+    name_index_file
+        .write_u32::<BigEndian>(try!(get_offset(&mut ix3)) as u32)
+        .unwrap();
 
     let post_data = try!(get_offset(&mut ix3));
 
-    let post_index_file = try!(merge_list_of_posting_lists(PostMapReader::new(&ix1, map1),
-                                                           PostMapReader::new(&ix2, map2),
-                                                           &mut ix3));
+    let post_index_file = try!(merge_list_of_posting_lists(
+        PostMapReader::new(&ix1, map1),
+        PostMapReader::new(&ix2, map2),
+        &mut ix3
+    ));
 
     // Name index
     let name_index = try!(get_offset(&mut ix3));
     name_index_file.seek(SeekFrom::Start(0)).unwrap();
-    copy_file(&mut ix3,
-              &mut BufReader::new(name_index_file.into_inner().unwrap()));
+    copy_file(
+        &mut ix3,
+        &mut BufReader::new(name_index_file.into_inner().unwrap()),
+    );
 
     // Posting list index
     let post_index = get_offset(&mut ix3).unwrap();
-    copy_file(&mut ix3,
-              &mut BufReader::new(post_index_file.into_inner().unwrap()));
+    copy_file(
+        &mut ix3,
+        &mut BufReader::new(post_index_file.into_inner().unwrap()),
+    );
 
     trace!("path_data  = {}", path_data);
     trace!("name_data  = {}", name_data);
     trace!("post_data  = {}", post_data);
     trace!("name_index = {}", name_index);
     trace!("post_index = {}", post_index);
-
 
     ix3.write_u32::<BigEndian>(path_data as u32).unwrap();
     ix3.write_u32::<BigEndian>(name_data as u32).unwrap();
@@ -226,10 +234,11 @@ pub fn merge<P1, P2, P3>(dest: P1, src1: P2, src2: P3) -> io::Result<()>
     Ok(())
 }
 
-fn merge_list_of_posting_lists(mut r1: PostMapReader,
-                               mut r2: PostMapReader,
-                               ix3: &mut BufWriter<File>)
-                               -> io::Result<BufWriter<File>> {
+fn merge_list_of_posting_lists(
+    mut r1: PostMapReader,
+    mut r2: PostMapReader,
+    ix3: &mut BufWriter<File>,
+) -> io::Result<BufWriter<File>> {
     // Merged list of posting lists.
     let mut w = try!(PostDataWriter::new(ix3));
 

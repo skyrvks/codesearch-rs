@@ -64,25 +64,24 @@
 // 	"\ncsearch trailr\n"
 
 use std::collections::BTreeSet;
-use std::path::Path;
-use std::io;
 use std::fmt;
 use std::fmt::Debug;
+use std::io;
 use std::io::Cursor;
+use std::path::Path;
 
-use consts::TRAILER_MAGIC;
-use memmap::{Mmap, Protection};
 use byteorder::{BigEndian, ReadBytesExt};
+use consts::TRAILER_MAGIC;
 use libvarint;
+use memmap::{Mmap, Protection};
 
-use regexp::{Query, QueryOperation};
 use super::search;
+use regexp::{Query, QueryOperation};
 
 pub const POST_ENTRY_SIZE: usize = 3 + 4 + 4;
 
 /// Simple alias for an ID representing a filename in the Index.
 pub type FileID = u32;
-
 
 /// Representation of an Index
 ///
@@ -121,15 +120,17 @@ pub struct IndexReader {
 
 impl Debug for IndexReader {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f,
-               "({}, {}, {}, {}, {}, {}, {}",
-               self.path_data,
-               self.name_data,
-               self.post_data,
-               self.name_index,
-               self.post_index,
-               self.num_name,
-               self.num_post)
+        write!(
+            f,
+            "({}, {}, {}, {}, {}, {}, {}",
+            self.path_data,
+            self.name_data,
+            self.post_data,
+            self.name_index,
+            self.post_index,
+            self.num_name,
+            self.num_post
+        )
     }
 }
 
@@ -139,7 +140,6 @@ fn extract_data_from_mmap(data: &Mmap, offset: usize) -> u32 {
         buf.read_u32::<BigEndian>().unwrap()
     }
 }
-
 
 impl IndexReader {
     fn extract_data(&self, offset: usize) -> u32 {
@@ -200,15 +200,14 @@ impl IndexReader {
             QueryOperation::None => PostSet::new(self),
             QueryOperation::All => PostSet {
                 index: self,
-                list: (0..self.num_name as u32).collect::<BTreeSet<FileID>>()
+                list: (0..self.num_name as u32).collect::<BTreeSet<FileID>>(),
             },
             QueryOperation::And => {
                 // writeln!(io::stderr(), "AND {:?}", query.trigram).unwrap();
-                let mut trigram_it = query.trigram
+                let mut trigram_it = query
+                    .trigram
                     .into_iter()
-                    .map(|t| {
-                        (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32)
-                    });
+                    .map(|t| (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32));
                 let mut sub_iter = query.sub.into_iter().map(|q| self.query(q));
                 let post_set = if let Some(i) = trigram_it.next() {
                     let s = PostSet::new(self).or(i).unwrap_or(PostSet::new(self));
@@ -226,19 +225,21 @@ impl IndexReader {
                     a.list = &a.list & &b;
                     a
                 })
-            },
+            }
             QueryOperation::Or => {
                 // writeln!(io::stderr(), "OR {:?}", query.trigram).unwrap();
-                let trigram_it = query.trigram
+                let trigram_it = query
+                    .trigram
                     .into_iter()
-                    .map(|t| {
-                        (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32)
-                    });
+                    .map(|t| (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32));
                 let post_set = trigram_it.fold(PostSet::new(self), |a, b| {
                     a.or(b).unwrap_or(PostSet::new(self))
                 });
                 // writeln!(io::stderr(), "post set size = {:?}", post_set.list.len()).unwrap();
-                query.sub.into_iter().map(|q| self.query(q).into_inner())
+                query
+                    .sub
+                    .into_iter()
+                    .map(|q| self.query(q).into_inner())
                     .fold(post_set, |mut a, b| {
                         a.list.extend(b.into_iter());
                         a
@@ -322,16 +323,18 @@ impl IndexReader {
         };
         let result = search::search(self.num_post, |i| {
             let i_scaled = i * POST_ENTRY_SIZE;
-            let tri_val = (d[i_scaled] as u32) << 16 | (d[i_scaled + 1] as u32) << 8 |
-                          (d[i_scaled + 2] as u32);
+            let tri_val = (d[i_scaled] as u32) << 16
+                | (d[i_scaled + 1] as u32) << 8
+                | (d[i_scaled + 2] as u32);
             tri_val >= trigram
         });
         if result >= self.num_post {
             return (0, 0);
         }
         let result_scaled: usize = result * POST_ENTRY_SIZE;
-        let tri_val = (d[result_scaled] as u32) << 16 | (d[result_scaled + 1] as u32) << 8 |
-                      (d[result_scaled + 2] as u32);
+        let tri_val = (d[result_scaled] as u32) << 16
+            | (d[result_scaled + 1] as u32) << 8
+            | (d[result_scaled + 2] as u32);
         if tri_val != trigram {
             return (0, 0);
         }
@@ -358,10 +361,11 @@ pub struct PostReader<'a, 'b> {
 }
 
 impl<'a, 'b> PostReader<'a, 'b> {
-    pub fn new(index: &'a IndexReader,
-               trigram: u32,
-               restrict: &'b Option<BTreeSet<u32>>)
-               -> Option<Self> {
+    pub fn new(
+        index: &'a IndexReader,
+        trigram: u32,
+        restrict: &'b Option<BTreeSet<u32>>,
+    ) -> Option<Self> {
         let (count, offset) = index.find_list(trigram);
         if count == 0 {
             return None;
@@ -380,11 +384,12 @@ impl<'a, 'b> PostReader<'a, 'b> {
             restrict: restrict,
         })
     }
-    pub fn and(index: &'a IndexReader,
-               list: BTreeSet<u32>,
-               trigram: u32,
-               restrict: &'b Option<BTreeSet<u32>>)
-               -> BTreeSet<u32> {
+    pub fn and(
+        index: &'a IndexReader,
+        list: BTreeSet<u32>,
+        trigram: u32,
+        restrict: &'b Option<BTreeSet<u32>>,
+    ) -> BTreeSet<u32> {
         if let Some(mut r) = Self::new(index, trigram, restrict) {
             let mut h = BTreeSet::new();
             while r.next() {
@@ -398,11 +403,12 @@ impl<'a, 'b> PostReader<'a, 'b> {
             BTreeSet::new()
         }
     }
-    pub fn or(index: &'a IndexReader,
-              list: BTreeSet<u32>,
-              trigram: u32,
-              restrict: &'b Option<BTreeSet<u32>>)
-              -> BTreeSet<u32> {
+    pub fn or(
+        index: &'a IndexReader,
+        list: BTreeSet<u32>,
+        trigram: u32,
+        restrict: &'b Option<BTreeSet<u32>>,
+    ) -> BTreeSet<u32> {
         if let Some(mut r) = Self::new(index, trigram, restrict) {
             let mut h = list;
             while r.next() {
@@ -413,7 +419,11 @@ impl<'a, 'b> PostReader<'a, 'b> {
             BTreeSet::new()
         }
     }
-    pub fn list(index: &'a IndexReader, trigram: u32, restrict: &'b Option<BTreeSet<u32>>) -> BTreeSet<u32> {
+    pub fn list(
+        index: &'a IndexReader,
+        trigram: u32,
+        restrict: &'b Option<BTreeSet<u32>>,
+    ) -> BTreeSet<u32> {
         if let Some(mut r) = Self::new(index, trigram, restrict) {
             let mut x = BTreeSet::<u32>::new();
             while r.next() {
@@ -437,7 +447,7 @@ impl<'a, 'b> PostReader<'a, 'b> {
             let is_fileid_found = match *self.restrict {
                 Some(ref r) if r.contains(&(self.fileid as u32)) => true,
                 None => true,
-                _ => false
+                _ => false,
             };
             if !is_fileid_found {
                 continue;
@@ -453,17 +463,19 @@ impl<'a, 'b> PostReader<'a, 'b> {
 
 pub struct PostSet<'a> {
     index: &'a IndexReader,
-    list: BTreeSet<u32>
+    list: BTreeSet<u32>,
 }
 
 impl<'a> PostSet<'a> {
     pub fn new(index: &'a IndexReader) -> Self {
         PostSet {
             index: index,
-            list: BTreeSet::new()
+            list: BTreeSet::new(),
         }
     }
-    pub fn into_inner(self) -> BTreeSet<u32> { self.list }
+    pub fn into_inner(self) -> BTreeSet<u32> {
+        self.list
+    }
     pub fn and(self, trigram: u32) -> Option<Self> {
         let (mut d, count) = unsafe {
             if let Some(tup) = Self::make_view(&self.index, trigram) {
@@ -474,7 +486,7 @@ impl<'a> PostSet<'a> {
         };
         let mut fileid = -1;
         let mut h = BTreeSet::new();
-        for _ in 0 .. count {
+        for _ in 0..count {
             let (delta, n) = libvarint::read_uvarint(d).unwrap();
             if n <= 0 || delta == 0 {
                 panic!("corrupt index");
@@ -487,7 +499,7 @@ impl<'a> PostSet<'a> {
         }
         Some(PostSet {
             index: self.index,
-            list: h
+            list: h,
         })
     }
     pub fn or(mut self, trigram: u32) -> Option<Self> {
@@ -500,7 +512,7 @@ impl<'a> PostSet<'a> {
         };
         let mut fileid = -1;
         // writeln!(io::stderr(), "TRI 0x{:6x}: {}", trigram, count).unwrap();
-        for _ in 0 .. count {
+        for _ in 0..count {
             let (delta, n) = libvarint::read_uvarint(d).unwrap();
             if n <= 0 || delta == 0 {
                 panic!("corrupt index");

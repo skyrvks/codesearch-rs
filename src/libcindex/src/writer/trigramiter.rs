@@ -1,7 +1,6 @@
-use std::io::{self, Read, BufReader};
+use std::io::{self, BufReader, Read};
 
-use super::error::{IndexResult, IndexError, IndexErrorKind};
-
+use super::error::{IndexError, IndexErrorKind, IndexResult};
 
 /// Yields 24-bit trigrams of characters from a reader
 ///
@@ -73,23 +72,29 @@ impl<R: Read> Iterator for TrigramReader<R> {
         let b2 = (self.current_value & 0xff) as u8;
         if b1 == 0x00 || b2 == 0x00 {
             // Binary file. Skip
-            self.error = Some(Err(IndexError::new(IndexErrorKind::BinaryDataPresent,
-                                                  format!("Binary File. Bytes {:02x}{:02x} at \
+            self.error = Some(Err(IndexError::new(
+                IndexErrorKind::BinaryDataPresent,
+                format!(
+                    "Binary File. Bytes {:02x}{:02x} at \
                                                            offset {}",
-                                                          b1,
-                                                          b2,
-                                                          self.num_read))));
+                    b1, b2, self.num_read
+                ),
+            )));
             None
         } else if !valid_utf8(b1, b2) {
             // invalid utf8 data
             self.inv_cnt += 1;
             if self.inv_cnt > self.max_invalid {
-                let e = IndexError::new(IndexErrorKind::HighInvalidUtf8Ratio,
-                                        format!("High invalid UTF-8 ratio. total {} invalid: {} \
+                let e = IndexError::new(
+                    IndexErrorKind::HighInvalidUtf8Ratio,
+                    format!(
+                        "High invalid UTF-8 ratio. total {} invalid: {} \
                                                  ratio: {}",
-                                                self.num_read,
-                                                self.inv_cnt,
-                                                (self.inv_cnt as f64) / (self.num_read as f64)));
+                        self.num_read,
+                        self.inv_cnt,
+                        (self.inv_cnt as f64) / (self.num_read as f64)
+                    ),
+                );
                 self.error = Some(Err(e));
                 None
             } else {
@@ -97,10 +102,10 @@ impl<R: Read> Iterator for TrigramReader<R> {
                 self.next()
             }
         } else if self.line_len > self.max_line_len {
-            let e = IndexError::new(IndexErrorKind::LineTooLong,
-                                    format!("Line too long ({} > {})",
-                                            self.line_len,
-                                            self.max_line_len));
+            let e = IndexError::new(
+                IndexErrorKind::LineTooLong,
+                format!("Line too long ({} > {})", self.line_len, self.max_line_len),
+            );
             self.error = Some(Err(e));
             None
         } else {
@@ -111,7 +116,6 @@ impl<R: Read> Iterator for TrigramReader<R> {
             }
             Some(self.current_value)
         }
-
     }
 }
 
@@ -132,7 +136,9 @@ fn valid_utf8(c1: u8, c2: u8) -> bool {
 
 #[test]
 fn test_trigram_iter_once() {
-    let c = TrigramReader::new("hello".as_bytes(), 0, 100).next().unwrap();
+    let c = TrigramReader::new("hello".as_bytes(), 0, 100)
+        .next()
+        .unwrap();
     let hel = ('h' as u32) << 16 | ('e' as u32) << 8 | ('l' as u32);
     assert_eq!(c, hel);
 }

@@ -4,12 +4,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-use std::io::{self, Write, Seek, BufWriter};
 use std::fs::File;
+use std::io::{self, BufWriter, Seek, Write};
 use std::u32;
 
 use libvarint;
-use writer::{WriteTrigram, get_offset};
+use writer::{get_offset, WriteTrigram};
 
 use byteorder::{BigEndian, WriteBytesExt};
 use tempfile::tempfile;
@@ -57,8 +57,12 @@ impl<'a, W: Write + Seek> PostDataWriter<'a, W> {
         }
         libvarint::write_uvarint(self.out, 0).unwrap();
         self.post_index_file.write_trigram(self.t).unwrap();
-        self.post_index_file.write_u32::<BigEndian>(self.count).unwrap();
-        self.post_index_file.write_u32::<BigEndian>(self.offset - self.base).unwrap();
+        self.post_index_file
+            .write_u32::<BigEndian>(self.count)
+            .unwrap();
+        self.post_index_file
+            .write_u32::<BigEndian>(self.offset - self.base)
+            .unwrap();
     }
     pub fn into_inner(self) -> BufWriter<File> {
         self.post_index_file

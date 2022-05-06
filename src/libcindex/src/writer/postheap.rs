@@ -150,7 +150,6 @@ impl Iterator for IntoIter {
     }
 }
 
-
 #[test]
 fn test_postchunk_empty() {
     let c = PostChunk::new(vec![]);
@@ -159,32 +158,34 @@ fn test_postchunk_empty() {
 
 #[test]
 fn test_postchunk_sized() {
-    let c = PostChunk::new(vec![PostEntry::new(0, 32),
-                                PostEntry::new(1, 32),
-                                PostEntry::new(3, 35)])
-                .unwrap();
+    let c = PostChunk::new(vec![
+        PostEntry::new(0, 32),
+        PostEntry::new(1, 32),
+        PostEntry::new(3, 35),
+    ])
+    .unwrap();
     assert!(!c.is_empty());
     assert_eq!(c.len(), 3);
 }
 
 #[test]
 fn test_postchunk_iter() {
-    let mut c = PostChunk::new(vec![PostEntry::new(0, 32),
-                                    PostEntry::new(1, 32),
-                                    PostEntry::new(3, 35)])
-                    .unwrap();
+    let mut c = PostChunk::new(vec![
+        PostEntry::new(0, 32),
+        PostEntry::new(1, 32),
+        PostEntry::new(3, 35),
+    ])
+    .unwrap();
     assert_eq!(c.next(), Some(PostEntry::new(0, 32)));
     assert_eq!(c.next(), Some(PostEntry::new(1, 32)));
     assert_eq!(c.next(), Some(PostEntry::new(3, 35)));
     assert_eq!(c.next(), None);
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::postentry::PostEntry;
+    use super::*;
 
     #[test]
     fn test_postheap_add_mem() {

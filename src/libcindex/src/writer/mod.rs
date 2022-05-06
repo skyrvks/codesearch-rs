@@ -3,21 +3,20 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-use std::io::{self, BufReader, BufWriter, SeekFrom, BufRead, Read, Seek, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 
+pub use self::error::{IndexError, IndexErrorKind, IndexResult};
 pub use self::write::IndexWriter;
-pub use self::error::{IndexResult, IndexError, IndexErrorKind};
 
-
-mod write;
 mod error;
 mod sparseset;
+mod write;
 
-mod postinglist;
 mod postentry;
 mod postheap;
-mod trigramiter;
+mod postinglist;
 mod sort_post;
+mod trigramiter;
 
 const NPOST: usize = (64 << 20) / 8; // 64 MB worth of post entries
 
@@ -44,16 +43,17 @@ pub fn copy_file<R: Read + Seek, W: Write>(dest: &mut BufWriter<W>, src: &mut R)
     }
 }
 
-
 /// Used for writing trigrams
 pub trait WriteTrigram: Write {
     /// Write a trigram to a stream
     ///
     /// Writes 24 bits of `t` into the stream
     fn write_trigram(&mut self, t: u32) -> io::Result<()> {
-        let mut buf: [u8; 3] = [((t >> 16) & 0xff) as u8,
-                                ((t >> 8) & 0xff) as u8,
-                                (t & 0xff) as u8];
+        let mut buf: [u8; 3] = [
+            ((t >> 16) & 0xff) as u8,
+            ((t >> 8) & 0xff) as u8,
+            (t & 0xff) as u8,
+        ];
         self.write_all(&mut buf)
     }
 }

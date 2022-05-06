@@ -7,28 +7,28 @@
 // license that can be found in the LICENSE file.
 
 #![allow(dead_code)]
-use std::fs::File;
-use std::path::Path;
-use std::io::{self, BufWriter, Read, Write};
 use std::ffi::OsString;
+use std::fs::File;
+use std::io::{self, BufWriter, Read, Write};
 use std::mem;
+use std::path::Path;
 
-use libvarint;
-use tempfile::tempfile;
 use byteorder::{BigEndian, WriteBytesExt};
 use libprofiling;
+use libvarint;
+use tempfile::tempfile;
 
 use consts::{MAGIC, TRAILER_MAGIC};
 
-use super::sparseset::SparseSet;
 use super::error::{IndexError, IndexErrorKind, IndexResult};
-use super::{WriteTrigram, copy_file, get_offset};
-use super::postinglist::{to_diffs, TakeWhilePeek};
 use super::postentry::PostEntry;
 use super::postheap::PostHeap;
-use super::trigramiter::TrigramReader;
+use super::postinglist::{to_diffs, TakeWhilePeek};
 use super::sort_post::sort_post;
+use super::sparseset::SparseSet;
+use super::trigramiter::TrigramReader;
 use super::NPOST;
+use super::{copy_file, get_offset, WriteTrigram};
 
 // Index writing.  See read.rs for details of on-disk format.
 //
@@ -50,7 +50,6 @@ const MAX_FILE_LEN: u64 = 1 << 30;
 const MAX_TEXT_TRIGRAMS: u64 = 30000;
 const MAX_INVALID_UTF8_RATION: f64 = 0.1;
 const MAX_LINE_LEN: u64 = 2000;
-
 
 pub struct IndexWriter {
     /// Max number of allowed trigrams in a file
@@ -137,15 +136,16 @@ impl IndexWriter {
     /// `filename` is the name of the opened file referred to by `f`.
     /// `size` is the size of the file referred to by `f`.
     pub fn add<P, R>(&mut self, filename: P, f: R, size: u64) -> IndexResult<()>
-        where P: AsRef<Path>,
-              R: Read
+    where
+        P: AsRef<Path>,
+        R: Read,
     {
         let _frame = libprofiling::profile("IndexWriter::add");
         if size > self.max_file_len {
-            return Err(IndexError::new(IndexErrorKind::FileTooLong,
-                                       format!("file too long, ignoring ({} > {})",
-                                               size,
-                                               self.max_file_len)));
+            return Err(IndexError::new(
+                IndexErrorKind::FileTooLong,
+                format!("file too long, ignoring ({} > {})", size, self.max_file_len),
+            ));
         }
         self.trigram.clear();
         let max_utf8_invalid = ((size as f64) * self.max_utf8_invalid) as u64;
@@ -160,11 +160,14 @@ impl IndexWriter {
             }
         }
         if (self.trigram.len() as u64) > self.max_trigram_count {
-            return Err(IndexError::new(IndexErrorKind::TooManyTrigrams,
-                                       format!("Too many trigrams ({} > {})",
-                                               self.trigram.len(),
-                                               self.max_trigram_count)));
-
+            return Err(IndexError::new(
+                IndexErrorKind::TooManyTrigrams,
+                format!(
+                    "Too many trigrams ({} > {})",
+                    self.trigram.len(),
+                    self.max_trigram_count
+                ),
+            ));
         }
         debug!("{} {} {:?}", size, self.trigram.len(), filename.as_ref());
         self.bytes_written += size as usize;
@@ -193,10 +196,10 @@ impl IndexWriter {
         let offset = try!(get_offset(&mut self.name_data));
         try!(self.name_index.write_u32::<BigEndian>(offset as u32));
 
-        let s = try!(filename.as_ref()
-                             .to_str()
-                             .ok_or(IndexError::new(IndexErrorKind::FileNameError,
-                                                    "UTF-8 Conversion error")));
+        let s = try!(filename.as_ref().to_str().ok_or(IndexError::new(
+            IndexErrorKind::FileNameError,
+            "UTF-8 Conversion error"
+        )));
         try!(self.name_data.write(s.as_bytes()));
         try!(self.name_data.write_u8(0));
 
@@ -215,10 +218,10 @@ impl IndexWriter {
         off[0] = try!(get_offset(&mut self.index));
 
         for p in &self.paths {
-            let path_as_bytes = try!(p.to_str()
-                                      .map(str::as_bytes)
-                                      .ok_or(IndexError::new(IndexErrorKind::FileNameError,
-                                                             "UTF-8 Conversion error")));
+            let path_as_bytes = try!(p.to_str().map(str::as_bytes).ok_or(IndexError::new(
+                IndexErrorKind::FileNameError,
+                "UTF-8 Conversion error"
+            )));
             try!(self.index.write(path_as_bytes));
             try!(self.index.write_u8(0));
         }
@@ -243,9 +246,11 @@ impl IndexWriter {
             try!(self.index.write_u32::<BigEndian>(*v as u32));
         }
         try!(self.index.write(TRAILER_MAGIC.as_bytes()));
-        info!("{} data bytes, {} index bytes",
-              self.bytes_written,
-              try!(get_offset(&mut self.index)));
+        info!(
+            "{} data bytes, {} index bytes",
+            self.bytes_written,
+            try!(get_offset(&mut self.index))
+        );
         Ok(())
     }
     /// Merge the posting lists together
@@ -265,11 +270,15 @@ impl IndexWriter {
         let mut h = heap.into_iter().peekable();
         let offset0 = try!(get_offset(&mut self.index));
 
-        let _frame_write = libprofiling::profile("IndexWriter::merge_post: Generate/Write post \
-                                                  index");
+        let _frame_write = libprofiling::profile(
+            "IndexWriter::merge_post: Generate/Write post \
+                                                  index",
+        );
         while let Some(plist) = TakeWhilePeek::new(&mut h) {
-            let _fname_write_to_index = libprofiling::profile("IndexWriter::merge_post: Write \
-                                                               post index");
+            let _fname_write_to_index = libprofiling::profile(
+                "IndexWriter::merge_post: Write \
+                                                               post index",
+            );
             let offset = try!(get_offset(&mut self.index)) - offset0;
 
             // posting list
@@ -290,10 +299,10 @@ impl IndexWriter {
         }
         // NOTE: write last entry like how the go version works
         let offset = try!(get_offset(&mut self.index)) - offset0;
-        try!(self.index.write_trigram(0xffffff));           // END trigram
-        try!(libvarint::write_uvarint(&mut self.index, 0));    // NUL byte for END postlist
-        try!(self.post_index.write_trigram(0xffffff));      // END trigram
-        try!(self.post_index.write_u32::<BigEndian>(0));    // nothing written
+        try!(self.index.write_trigram(0xffffff)); // END trigram
+        try!(libvarint::write_uvarint(&mut self.index, 0)); // NUL byte for END postlist
+        try!(self.post_index.write_trigram(0xffffff)); // END trigram
+        try!(self.post_index.write_u32::<BigEndian>(0)); // nothing written
         try!(self.post_index.write_u32::<BigEndian>(offset as u32));
 
         Ok(())

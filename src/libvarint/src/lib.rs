@@ -22,7 +22,6 @@ pub fn read_uvarint(b: &[u8]) -> Result<(u64, u64), u64> {
     Err(0)
 }
 
-
 pub fn write_uvarint<W: Write>(writer: &mut W, x: u32) -> io::Result<usize> {
     let mut bytes_written = 0;
     let mut x = x;

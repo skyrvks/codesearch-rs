@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 pub type StringSet = BTreeSet<Vec<u8>>;
 
 // use regex::Regex;
-use regex_syntax::{Expr, Repeater, ByteClass, ClassRange, ByteRange};
+use regex_syntax::{ByteClass, ByteRange, ClassRange, Expr, Repeater};
 
 /// Operation on a Query
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -37,7 +37,7 @@ impl Query {
         match self.operation {
             QueryOperation::None => return String::from("-"),
             QueryOperation::All => return String::from("+"),
-            _ => ()
+            _ => (),
         }
         if self.sub.is_empty() && self.trigram.len() == 1 {
             let tri = self.trigram.iter().next().unwrap();
@@ -46,9 +46,9 @@ impl Query {
         }
         let (sjoin, tjoin) = match self.operation {
             QueryOperation::And => (" ", " "),
-            _ => (")|(", "|")
+            _ => (")|(", "|"),
         };
-        let end = if self.operation ==  QueryOperation::And {
+        let end = if self.operation == QueryOperation::And {
             ""
         } else {
             s.push_str("(");
@@ -114,14 +114,19 @@ impl Query {
             }
             (_, _) => (),
         }
-        if self.operation == QueryOperation::And ||
-           (self.operation == QueryOperation::Or && self.trigram.len() == 1 &&
-            self.sub.len() == 0) {
+        if self.operation == QueryOperation::And
+            || (self.operation == QueryOperation::Or
+                && self.trigram.len() == 1
+                && self.sub.len() == 0)
+        {
             return trigrams_imply(&self.trigram, rhs);
         }
-        if self.operation == QueryOperation::Or && rhs.operation == QueryOperation::Or &&
-           self.trigram.len() > 0 && self.sub.len() == 0 &&
-           self.trigram.is_subset(&rhs.trigram) {
+        if self.operation == QueryOperation::Or
+            && rhs.operation == QueryOperation::Or
+            && self.trigram.len() > 0
+            && self.sub.len() == 0
+            && self.trigram.is_subset(&rhs.trigram)
+        {
             return true;
         }
         return false;
@@ -163,48 +168,49 @@ impl RegexInfo {
     fn analyze(expr: Expr) -> Result<Self, String> {
         // println!("expr: {:?}", expr);
         match expr {
-            Expr::Empty |
-            Expr::StartLine |
-            Expr::EndLine |
-            Expr::StartText |
-            Expr::EndText |
-            Expr::WordBoundary |
-            Expr::NotWordBoundary => Ok(Self::empty_string()),
-            Expr::WordBoundaryAscii |
-            Expr::NotWordBoundaryAscii => Ok(Self::empty_string()),
-            Expr::Literal {chars, casei } => {
-                Self::analyze(Expr::LiteralBytes {
-                    bytes: String::from_iter(chars.into_iter()).into_bytes(),
-                    casei: casei
-                })
-            }
+            Expr::Empty
+            | Expr::StartLine
+            | Expr::EndLine
+            | Expr::StartText
+            | Expr::EndText
+            | Expr::WordBoundary
+            | Expr::NotWordBoundary => Ok(Self::empty_string()),
+            Expr::WordBoundaryAscii | Expr::NotWordBoundaryAscii => Ok(Self::empty_string()),
+            Expr::Literal { chars, casei } => Self::analyze(Expr::LiteralBytes {
+                bytes: String::from_iter(chars.into_iter()).into_bytes(),
+                casei: casei,
+            }),
             Expr::LiteralBytes { bytes, casei: true } => {
                 match bytes.len() {
                     0 => Ok(Self::empty_string()),
                     1 => {
-                        let re1 = Expr::ClassBytes(ByteClass::new(vec![ByteRange {
-                                                                      start: bytes[0],
-                                                                      end: bytes[0],
-                                                                  }]).case_fold());
+                        let re1 = Expr::ClassBytes(
+                            ByteClass::new(vec![ByteRange {
+                                start: bytes[0],
+                                end: bytes[0],
+                            }])
+                            .case_fold(),
+                        );
                         Self::analyze(re1)
                     }
                     _ => {
                         // Multi-letter case-folded string:
                         // treat as concatenation of single-letter case-folded strings.
-                        let folded = bytes
-                            .into_iter()
-                            .fold(Ok(Self::empty_string()), |info, c| {
-                                let analyzed = try!(Self::analyze(Expr::LiteralBytes {
-                                    bytes: vec![c],
-                                    casei: true
-                                }));
-                                info.map(|info| concat(info, analyzed))
-                            });
+                        let folded = bytes.into_iter().fold(Ok(Self::empty_string()), |info, c| {
+                            let analyzed = try!(Self::analyze(Expr::LiteralBytes {
+                                bytes: vec![c],
+                                casei: true
+                            }));
+                            info.map(|info| concat(info, analyzed))
+                        });
                         folded
                     }
                 }
             }
-            Expr::LiteralBytes { bytes, casei: false} => {
+            Expr::LiteralBytes {
+                bytes,
+                casei: false,
+            } => {
                 let exact_set = {
                     let mut h = StringSet::new();
                     h.insert(bytes);
@@ -215,7 +221,7 @@ impl RegexInfo {
                     exact_set: Some(exact_set.clone()),
                     prefix: StringSet::new(),
                     suffix: StringSet::new(),
-                    query: Query::all()
+                    query: Query::all(),
                 };
                 Ok(simplify(r, false))
             }
@@ -227,36 +233,36 @@ impl RegexInfo {
                     Some(ex) => ex,
                     None => return Ok(Self::empty_string()),
                 };
-                exprs.fold(first, |a, b| {
-                    match (a, b) {
-                        (Ok(a), Ok(b)) => Ok(concat(a, b)),
-                        (Err(e), _) | (_, Err(e)) => Err(e)
-                    }
+                exprs.fold(first, |a, b| match (a, b) {
+                    (Ok(a), Ok(b)) => Ok(concat(a, b)),
+                    (Err(e), _) | (_, Err(e)) => Err(e),
                 })
             }
             Expr::Alternate(v) => {
                 let mut v = v.into_iter().map(Self::analyze);
                 let first = match v.next() {
                     Some(f) => f,
-                    None => return Ok(Self::no_match())
+                    None => return Ok(Self::no_match()),
                 };
-                v.fold(first, |a, b| {
-                    match (a, b) {
-                        (Ok(a), Ok(b)) => Ok(alternate(a, b)),
-                        (Err(e), _) | (_, Err(e)) => Err(e)
-                    }
+                v.fold(first, |a, b| match (a, b) {
+                    (Ok(a), Ok(b)) => Ok(alternate(a, b)),
+                    (Err(e), _) | (_, Err(e)) => Err(e),
                 })
             }
-            Expr::Repeat {e, r, /* ref greedy */ .. } => {
+            Expr::Repeat {
+                e,
+                r, /* ref greedy */
+                ..
+            } => {
                 match r {
                     Repeater::ZeroOrOne => {
                         let e = Self::analyze(*e)?;
                         Ok(alternate(e, Self::empty_string()))
-                    },
-                    Repeater::ZeroOrMore | Repeater::Range {..} => {
+                    }
+                    Repeater::ZeroOrMore | Repeater::Range { .. } => {
                         // We don't know anything, so assume the worst.
                         Ok(Self::any_match())
-                    },
+                    }
                     Repeater::OneOrMore => {
                         // x+
                         // Since there has to be at least one x, the prefixes and suffixes
@@ -269,7 +275,7 @@ impl RegexInfo {
                             info.exact_set = None;
                         }
                         Ok(simplify(info, false))
-                    },
+                    }
                 }
             }
             Expr::Class(ref ranges) if ranges.is_empty() => Ok(Self::no_match()),
@@ -288,8 +294,10 @@ impl RegexInfo {
                         Some(x) if x > 100 => return Ok(Self::any_char()),
                         Some(_) => (),
                         None => {
-                            return Err(format!("range not in ascending order ({}..{})",
-                                               start, end));
+                            return Err(format!(
+                                "range not in ascending order ({}..{})",
+                                start, end
+                            ));
                         }
                     }
                     let next_range: StringSet = {
@@ -308,7 +316,7 @@ impl RegexInfo {
                     }
                 }
                 Ok(simplify(info, false))
-            },
+            }
             Expr::ClassBytes(ref ranges) if ranges.is_empty() => Ok(Self::no_match()),
             Expr::ClassBytes(ref ranges) => {
                 let mut info = RegexInfo {
@@ -325,13 +333,15 @@ impl RegexInfo {
                         Some(x) if x > 100 => return Ok(Self::any_char()),
                         Some(_) => (),
                         None => {
-                            return Err(format!("range not in ascending order ({}..{})",
-                                               start, end));
+                            return Err(format!(
+                                "range not in ascending order ({}..{})",
+                                start, end
+                            ));
                         }
                     }
                     let next_range: StringSet = {
                         let mut h = StringSet::new();
-                        for chr in start..end+1 {
+                        for chr in start..end + 1 {
                             h.insert(vec![chr]);
                         }
                         h
@@ -343,10 +353,8 @@ impl RegexInfo {
                     }
                 }
                 Ok(simplify(info, false))
-            },
-            Expr::Group { e, .. } => {
-                Self::analyze(*e)
-            },
+            }
+            Expr::Group { e, .. } => Self::analyze(*e),
         }
     }
     fn no_match() -> Self {
@@ -448,9 +456,12 @@ fn concat(x: RegexInfo, y: RegexInfo) -> RegexInfo {
     // of them must be present and would not necessarily be
     // accounted for in xy.prefix or xy.suffix yet.  Cut things off
     // at maxSet just to keep the sets manageable.
-    if x.exact_set.is_none() && y.exact_set.is_none() && x.suffix.len() <= 20 &&
-                  y.prefix.len() <= 20 &&
-                  (min_string_len(&x.suffix) + min_string_len(&y.prefix)) >= 3 {
+    if x.exact_set.is_none()
+        && y.exact_set.is_none()
+        && x.suffix.len() <= 20
+        && y.prefix.len() <= 20
+        && (min_string_len(&x.suffix) + min_string_len(&y.prefix)) >= 3
+    {
         xy.query = and_trigrams(xy.query, &cross_product(&x.suffix, &y.prefix))
     }
 
@@ -484,8 +495,12 @@ fn alternate(x: RegexInfo, y: RegexInfo) -> RegexInfo {
             xy.suffix = union(&x.suffix, &y.suffix);
         }
     }
-    if add_exact_x { add_exact(&mut x); }
-    if add_exact_y { add_exact(&mut y); }
+    if add_exact_x {
+        add_exact(&mut x);
+    }
+    if add_exact_y {
+        add_exact(&mut y);
+    }
     xy.can_empty = x.can_empty || y.can_empty;
     xy.query = x.query.or(y.query);
     simplify(xy, false)
@@ -503,9 +518,7 @@ fn add_exact(x: &mut RegexInfo) {
 fn simplify(mut info: RegexInfo, force: bool) -> RegexInfo {
     // println!("simplify {:?}: {}", info, info.format_as_string());
     let do_simplify = if let Some(ref exact) = info.exact_set {
-        exact.len() > 7 
-            || (min_string_len(&exact) >= 3 && force)
-            || min_string_len(&exact) >= 4
+        exact.len() > 7 || (min_string_len(&exact) >= 3 && force) || min_string_len(&exact) >= 4
     } else {
         false
     };
@@ -514,11 +527,8 @@ fn simplify(mut info: RegexInfo, force: bool) -> RegexInfo {
         add_exact(&mut info);
     }
 
-
     if let Some(ref exact) = info.exact_set {
-        if exact.len() > 7 
-            || (min_string_len(&exact) >= 3 && force)
-            || min_string_len(&exact) >= 4
+        if exact.len() > 7 || (min_string_len(&exact) >= 3 && force) || min_string_len(&exact) >= 4
         {
             for s in exact {
                 let n = s.len();
@@ -527,7 +537,7 @@ fn simplify(mut info: RegexInfo, force: bool) -> RegexInfo {
                     info.suffix.insert(s.clone());
                 } else {
                     let first_three_chars = s.iter().take(2).cloned().collect();
-                    let rest = s.iter().skip(n-2).cloned().collect();
+                    let rest = s.iter().skip(n - 2).cloned().collect();
                     info.prefix.insert(first_three_chars);
                     info.suffix.insert(rest);
                 }
@@ -554,9 +564,9 @@ fn simplify_set(mut q: Query, prefix_or_suffix: &mut StringSet, is_suffix: bool)
             let mut s = string.clone();
             if s.len() >= n {
                 s = if !is_suffix {
-                    s.iter().take(n-1).cloned().collect()
+                    s.iter().take(n - 1).cloned().collect()
                 } else {
-                    s.iter().skip(s.len()-n+1).cloned().collect()
+                    s.iter().skip(s.len() - n + 1).cloned().collect()
                 };
             }
             t.insert(s);
@@ -743,7 +753,6 @@ fn and_or(q: Query, r: Query, operation: QueryOperation) -> Query {
         }
     }
 }
-
 
 struct CharRangeIter {
     #[allow(dead_code)]

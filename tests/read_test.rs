@@ -6,10 +6,10 @@ mod common;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use self::libcsearch::reader::{IndexReader, PostReader};
 use self::tempfile::NamedTempFile;
-use self::libcsearch::reader::{PostReader, IndexReader};
 
-use common::{tri, build_index};
+use common::{build_index, tri};
 
 macro_rules! set {
     ( $( $x:expr ),* ) => {
@@ -32,7 +32,6 @@ fn post_files() -> BTreeMap<&'static str, &'static str> {
     m
 }
 
-
 fn make_index() -> IndexReader {
     let f = NamedTempFile::new().unwrap();
     let out = f.path();
@@ -43,38 +42,58 @@ fn make_index() -> IndexReader {
 #[test]
 fn test_postreader_list() {
     let ix = make_index();
-    assert_eq!(PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
-               set![1, 3]);
-    assert_eq!(PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
-               set![1, 2, 3]);
+    assert_eq!(
+        PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
+        set![1, 3]
+    );
+    assert_eq!(
+        PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
+        set![1, 2, 3]
+    );
 }
 
 #[test]
 fn test_postreader_and() {
     let ix = make_index();
-    assert_eq!(PostReader::and(&ix,
-                               PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
-                               tri('G', 'o', 'o'),
-                               &mut None),
-               set![1, 3]);
-    assert_eq!(PostReader::and(&ix,
-                               PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
-                               tri('S', 'e', 'a'),
-                               &mut None),
-               set![1, 3]);
+    assert_eq!(
+        PostReader::and(
+            &ix,
+            PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
+            tri('G', 'o', 'o'),
+            &mut None
+        ),
+        set![1, 3]
+    );
+    assert_eq!(
+        PostReader::and(
+            &ix,
+            PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
+            tri('S', 'e', 'a'),
+            &mut None
+        ),
+        set![1, 3]
+    );
 }
 
 #[test]
 fn test_postreader_or() {
     let ix = make_index();
-    assert_eq!(PostReader::or(&ix,
-                              PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
-                              tri('S', 'e', 'a'),
-                              &mut None),
-               set![1, 2, 3]);
-    assert_eq!(PostReader::or(&ix,
-                              PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
-                              tri('G', 'o', 'o'),
-                              &mut None),
-               set![1, 2, 3]);
+    assert_eq!(
+        PostReader::or(
+            &ix,
+            PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
+            tri('S', 'e', 'a'),
+            &mut None
+        ),
+        set![1, 2, 3]
+    );
+    assert_eq!(
+        PostReader::or(
+            &ix,
+            PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
+            tri('G', 'o', 'o'),
+            &mut None
+        ),
+        set![1, 2, 3]
+    );
 }

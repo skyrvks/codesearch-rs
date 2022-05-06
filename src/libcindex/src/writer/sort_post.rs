@@ -11,13 +11,11 @@ use std::mem;
 use super::postentry::PostEntry;
 use libprofiling;
 
-
 // sortPost sorts the postentry list.
 // The list is already sorted by fileid (bottom 32 bits)
 // and the top 8 bits are always zero, so there are only
 // 24 bits to sort.  Run two rounds of 12-bit radix sort.
 const K: usize = 12;
-
 
 pub fn sort_post(post: &mut Vec<PostEntry>) {
     let _frame = libprofiling::profile("sort_post");
@@ -64,12 +62,14 @@ pub fn sort_post(post: &mut Vec<PostEntry>) {
 
 #[test]
 fn test_sort() {
-    let mut v = vec![PostEntry::new(5, 0),
-                     PostEntry::new(1, 0),
-                     PostEntry::new(10, 0),
-                     PostEntry::new(4, 1),
-                     PostEntry::new(4, 5),
-                     PostEntry::new(5, 10)];
+    let mut v = vec![
+        PostEntry::new(5, 0),
+        PostEntry::new(1, 0),
+        PostEntry::new(10, 0),
+        PostEntry::new(4, 1),
+        PostEntry::new(4, 5),
+        PostEntry::new(5, 10),
+    ];
     let mut v_1 = v.clone();
     v_1.sort();
     sort_post(&mut v);

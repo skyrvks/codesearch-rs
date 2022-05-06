@@ -7,19 +7,17 @@ use regex_syntax::Expr;
 use libcsearch::regexp::RegexInfo;
 
 macro_rules! regex_eq {
-    ( $r:expr, $expected:expr ) => {
-        {
-            let e = match Expr::parse($r.as_ref()) {
-                Ok(e) => e,
-                Err(e) => panic!("FAILED to parse expr `{}` --- CAUSE: {}", $r, e)
-            };
-            let regexinfo = RegexInfo::new(e).unwrap();
-            println!("RegexInfo = {}", regexinfo.format_as_string());
-            let q = regexinfo.query;
-            println!("Query = {:?}", q);
-            assert_eq!($expected.to_string(), q.format_as_string());
+    ( $r:expr, $expected:expr ) => {{
+        let e = match Expr::parse($r.as_ref()) {
+            Ok(e) => e,
+            Err(e) => panic!("FAILED to parse expr `{}` --- CAUSE: {}", $r, e),
         };
-    }
+        let regexinfo = RegexInfo::new(e).unwrap();
+        println!("RegexInfo = {}", regexinfo.format_as_string());
+        let q = regexinfo.query;
+        println!("Query = {:?}", q);
+        assert_eq!($expected.to_string(), q.format_as_string());
+    };};
 }
 
 #[test]
@@ -27,21 +25,29 @@ fn test_query() {
     regex_eq!(r"Abcdef", "\"Abc\" \"bcd\" \"cde\" \"def\"");
     regex_eq!(r"(abc)(def)", "\"abc\" \"bcd\" \"cde\" \"def\"");
     regex_eq!(r"abc.*(def|ghi)", "\"abc\" (\"def\"|\"ghi\")");
-    regex_eq!(r"abc(def|ghi)",
-              "\"abc\" (\"bcd\" \"cde\" \"def\")|(\"bcg\" \"cgh\" \"ghi\")");
+    regex_eq!(
+        r"abc(def|ghi)",
+        "\"abc\" (\"bcd\" \"cde\" \"def\")|(\"bcg\" \"cgh\" \"ghi\")"
+    );
     regex_eq!(r"a+hello", "\"ahe\" \"ell\" \"hel\" \"llo\"");
-    regex_eq!(r"(a+hello|b+world)",
-              "(\"ahe\" \"ell\" \"hel\" \"llo\")|(\"bwo\" \"orl\" \"rld\" \"wor\")");
+    regex_eq!(
+        r"(a+hello|b+world)",
+        "(\"ahe\" \"ell\" \"hel\" \"llo\")|(\"bwo\" \"orl\" \"rld\" \"wor\")"
+    );
     regex_eq!(r"a*bbb", "\"bbb\"");
     regex_eq!(r"a?bbb", "\"bbb\"");
     regex_eq!(r"(bbb)a?", "\"bbb\"");
     regex_eq!(r"(bbb)a*", "\"bbb\"");
     regex_eq!(r"^abc", "\"abc\"");
     regex_eq!(r"abc$", "\"abc\"");
-    regex_eq!(r"ab[cde]f",
-              "(\"abc\" \"bcf\")|(\"abd\" \"bdf\")|(\"abe\" \"bef\")");
-    regex_eq!(r"(abc|bac)de",
-              "\"cde\" (\"abc\" \"bcd\")|(\"acd\" \"bac\")");
+    regex_eq!(
+        r"ab[cde]f",
+        "(\"abc\" \"bcf\")|(\"abd\" \"bdf\")|(\"abe\" \"bef\")"
+    );
+    regex_eq!(
+        r"(abc|bac)de",
+        "\"cde\" (\"abc\" \"bcd\")|(\"acd\" \"bac\")"
+    );
 }
 
 #[test]
@@ -90,21 +96,31 @@ fn test_query_factoring() {
     regex_eq!(r"ab(cab|cat)", "\"abc\" \"bca\" (\"cab\"|\"cat\")");
     regex_eq!(r"(z*(abc|def)z*)(z*(abc|def)z*)", "(\"abc\"|\"def\")");
     regex_eq!(r"(z*abcz*defz*)|(z*abcz*defz*)", "\"abc\" \"def\"");
-    regex_eq!(r"(z*abcz*defz*(ghi|jkl)z*)|(z*abcz*defz*(mno|prs)z*)",
-              "\"abc\" \"def\" (\"ghi\"|\"jkl\"|\"mno\"|\"prs\")");
-    regex_eq!(r"(z*(abcz*def)|(ghiz*jkl)z*)|(z*(mnoz*prs)|(tuvz*wxy)z*)",
-              "(\"abc\" \"def\")|(\"ghi\" \"jkl\")|(\"mno\" \"prs\")|(\"tuv\" \"wxy\")");
-    regex_eq!(r"(z*abcz*defz*)(z*(ghi|jkl)z*)",
-              "\"abc\" \"def\" (\"ghi\"|\"jkl\")");
-    regex_eq!(r"(z*abcz*defz*)|(z*(ghi|jkl)z*)",
-              "(\"ghi\"|\"jkl\")|(\"abc\" \"def\")");
+    regex_eq!(
+        r"(z*abcz*defz*(ghi|jkl)z*)|(z*abcz*defz*(mno|prs)z*)",
+        "\"abc\" \"def\" (\"ghi\"|\"jkl\"|\"mno\"|\"prs\")"
+    );
+    regex_eq!(
+        r"(z*(abcz*def)|(ghiz*jkl)z*)|(z*(mnoz*prs)|(tuvz*wxy)z*)",
+        "(\"abc\" \"def\")|(\"ghi\" \"jkl\")|(\"mno\" \"prs\")|(\"tuv\" \"wxy\")"
+    );
+    regex_eq!(
+        r"(z*abcz*defz*)(z*(ghi|jkl)z*)",
+        "\"abc\" \"def\" (\"ghi\"|\"jkl\")"
+    );
+    regex_eq!(
+        r"(z*abcz*defz*)|(z*(ghi|jkl)z*)",
+        "(\"ghi\"|\"jkl\")|(\"abc\" \"def\")"
+    );
 }
 
 #[test]
 fn test_query_prefix_suffix() {
     // analyze keeps track of multiple possible prefix/suffixes.
-    regex_eq!(r"[ab][cd][ef]",
-              "(\"ace\"|\"acf\"|\"ade\"|\"adf\"|\"bce\"|\"bcf\"|\"bde\"|\"bdf\")");
+    regex_eq!(
+        r"[ab][cd][ef]",
+        "(\"ace\"|\"acf\"|\"ade\"|\"adf\"|\"bce\"|\"bcf\"|\"bde\"|\"bdf\")"
+    );
     regex_eq!(r"ab[cd]e", "(\"abc\" \"bce\")|(\"abd\" \"bde\")");
 
     // Different sized suffixes.
@@ -119,16 +135,24 @@ fn test_query_expand_case() {
     // Expanding case.
     regex_eq!(r"(?i)a~~", "(\"A~~\"|\"a~~\")");
     regex_eq!(r"(?i)ab~", "(\"AB~\"|\"Ab~\"|\"aB~\"|\"ab~\")");
-    regex_eq!(r"(?i)abc",
-              "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"aBC\"|\"aBc\"|\"abC\"|\"abc\")");
-    regex_eq!(r"(?i)abc|def",
-              "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"DEF\"|\"DEf\"|\"DeF\"|\"Def\"\
-              |\"aBC\"|\"aBc\"|\"abC\"|\"abc\"|\"dEF\"|\"dEf\"|\"deF\"|\"def\")");
-    regex_eq!(r"(?i)abcd",
-              "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"aBC\"|\"aBc\"|\"abC\"|\"abc\") \
-               (\"BCD\"|\"BCd\"|\"BcD\"|\"Bcd\"|\"bCD\"|\"bCd\"|\"bcD\"|\"bcd\")");
-    regex_eq!(r"(?i)abc|abc",
-              "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"aBC\"|\"aBc\"|\"abC\"|\"abc\")");
+    regex_eq!(
+        r"(?i)abc",
+        "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"aBC\"|\"aBc\"|\"abC\"|\"abc\")"
+    );
+    regex_eq!(
+        r"(?i)abc|def",
+        "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"DEF\"|\"DEf\"|\"DeF\"|\"Def\"\
+              |\"aBC\"|\"aBc\"|\"abC\"|\"abc\"|\"dEF\"|\"dEf\"|\"deF\"|\"def\")"
+    );
+    regex_eq!(
+        r"(?i)abcd",
+        "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"aBC\"|\"aBc\"|\"abC\"|\"abc\") \
+               (\"BCD\"|\"BCd\"|\"BcD\"|\"Bcd\"|\"bCD\"|\"bCd\"|\"bcD\"|\"bcd\")"
+    );
+    regex_eq!(
+        r"(?i)abc|abc",
+        "(\"ABC\"|\"ABc\"|\"AbC\"|\"Abc\"|\"aBC\"|\"aBc\"|\"abC\"|\"abc\")"
+    );
 }
 
 #[test]

@@ -62,8 +62,9 @@ impl<'a> PostMapReader<'a> {
             self.file_id = u32::MAX;
             return;
         }
-        let (trigram, count, offset) = self.index
-                                           .list_at((self.tri_num as usize) * POST_ENTRY_SIZE);
+        let (trigram, count, offset) = self
+            .index
+            .list_at((self.tri_num as usize) * POST_ENTRY_SIZE);
         self.trigram = trigram;
         self.count = count;
         self.offset = offset;
@@ -85,8 +86,7 @@ impl<'a> PostMapReader<'a> {
             self.count -= 1;
             let (delta, n) = libvarint::read_uvarint(self.d).unwrap();
             if n <= 0 || delta == 0 {
-                panic!("merge: inconsistent index at trigram {}",
-                       self.trigram);
+                panic!("merge: inconsistent index at trigram {}", self.trigram);
             }
             self.d = self.d.split_at(n as usize).1;
             self.old_id = self.old_id.wrapping_add(delta as u32);

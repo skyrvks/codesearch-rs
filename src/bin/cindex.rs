@@ -18,25 +18,24 @@ extern crate libcustomlogger;
 extern crate libprofiling;
 extern crate libvarint;
 
-
+use libcindex::writer::{IndexErrorKind, IndexWriter};
 use libcsearch::reader::IndexReader;
-use libcindex::writer::{IndexWriter, IndexErrorKind};
 use log::LogLevelFilter;
 use walkdir::{WalkDir, WalkDirIterator};
 
 use std::collections::HashSet;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
 use std::fs::{self, File, FileType};
 use std::io::{self, BufRead, BufReader};
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 #[cfg(windows)]
 use std::path::Component;
-use std::thread;
-use std::sync::mpsc;
-use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::mpsc;
+use std::thread;
 
 #[cfg(not(unix))]
 fn is_regular_file(meta: FileType) -> bool {
@@ -45,8 +44,12 @@ fn is_regular_file(meta: FileType) -> bool {
 
 #[cfg(unix)]
 fn is_regular_file(meta: FileType) -> bool {
-    !meta.is_dir() && !meta.is_symlink() && !meta.is_fifo() && !meta.is_socket() &&
-    !meta.is_block_device() && !meta.is_char_device()
+    !meta.is_dir()
+        && !meta.is_symlink()
+        && !meta.is_fifo()
+        && !meta.is_socket()
+        && !meta.is_block_device()
+        && !meta.is_char_device()
 }
 
 #[cfg(windows)]
@@ -56,8 +59,7 @@ fn normalize<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {
     // only drop current directory if the first part of p is a prefix (C:/) or root (/)
     if let Some(c) = it.next() {
         match c {
-            r @ Component::Prefix(_) |
-            r @ Component::RootDir => {
+            r @ Component::Prefix(_) | r @ Component::RootDir => {
                 out = PathBuf::new();
                 out.push(r.as_os_str());
             }
@@ -126,59 +128,89 @@ With no path arguments, cindex -reset removes the index.";
 fn main() {
     let matches = clap::App::new("cindex")
         .version(&crate_version!()[..])
-        .author("Vernon Jones <vernonrjones@gmail.com> (original code copyright 2011 the Go \
-                 authors)")
+        .author(
+            "Vernon Jones <vernonrjones@gmail.com> (original code copyright 2011 the Go \
+                 authors)",
+        )
         .about(ABOUT)
-        .arg(clap::Arg::with_name("path")
-            .index(1)
-            .multiple(true)
-            .help("path to index"))
-        .arg(clap::Arg::with_name("list-paths")
-            .long("list")
-            .help("list indexed paths and exit"))
-        .arg(clap::Arg::with_name("reset-index")
-            .long("reset")
-            .conflicts_with("path")
-            .conflicts_with("list-paths")
-            .help("discard existing index"))
-        .arg(clap::Arg::with_name("INDEX_FILE")
-            .long("indexpath")
-            .takes_value(true)
-            .help("use specified INDEX_FILE as the index path. overrides $CSEARCHINDEX"))
-        .arg(clap::Arg::with_name("no-follow-simlinks")
-            .long("no-follow-simlinks")
-            .help("do not follow symlinked files and directories"))
-        .arg(clap::Arg::with_name("MAX_FILE_SIZE_BYTES")
-            .long("maxFileLen")
-            .takes_value(true)
-            .help("skip indexing a file if longer than this size in bytes"))
-        .arg(clap::Arg::with_name("MAX_LINE_LEN_BYTES")
-            .long("maxLineLen")
-            .takes_value(true)
-            .help("skip indexing a file if it has a line longer than this size in bytes"))
-        .arg(clap::Arg::with_name("MAX_TRIGRAMS_COUNT")
-            .long("maxtrigrams")
-            .takes_value(true)
-            .help("skip indexing a file if it has more than this number of trigrams"))
-        .arg(clap::Arg::with_name("MAX_INVALID_UTF8_RATIO")
-            .long("maxinvalidutf8ratio")
-            .takes_value(true)
-            .help("skip indexing a file if it has more than this ratio of invalid UTF-8 \
-                   sequences"))
-        .arg(clap::Arg::with_name("EXCLUDE_FILE")
-            .long("exclude")
-            .takes_value(true)
-            .help("path to file containing a list of file patterns to exclude from indexing"))
-        .arg(clap::Arg::with_name("FILE")
-            .long("filelist")
-            .takes_value(true)
-            .help("path to file containing a list of file paths to index"))
-        .arg(clap::Arg::with_name("verbose")
-            .long("verbose")
-            .help("print extra information"))
-        .arg(clap::Arg::with_name("logskip")
-            .long("logskip")
-            .help("print why a file was skipped from indexing"))
+        .arg(
+            clap::Arg::with_name("path")
+                .index(1)
+                .multiple(true)
+                .help("path to index"),
+        )
+        .arg(
+            clap::Arg::with_name("list-paths")
+                .long("list")
+                .help("list indexed paths and exit"),
+        )
+        .arg(
+            clap::Arg::with_name("reset-index")
+                .long("reset")
+                .conflicts_with("path")
+                .conflicts_with("list-paths")
+                .help("discard existing index"),
+        )
+        .arg(
+            clap::Arg::with_name("INDEX_FILE")
+                .long("indexpath")
+                .takes_value(true)
+                .help("use specified INDEX_FILE as the index path. overrides $CSEARCHINDEX"),
+        )
+        .arg(
+            clap::Arg::with_name("no-follow-simlinks")
+                .long("no-follow-simlinks")
+                .help("do not follow symlinked files and directories"),
+        )
+        .arg(
+            clap::Arg::with_name("MAX_FILE_SIZE_BYTES")
+                .long("maxFileLen")
+                .takes_value(true)
+                .help("skip indexing a file if longer than this size in bytes"),
+        )
+        .arg(
+            clap::Arg::with_name("MAX_LINE_LEN_BYTES")
+                .long("maxLineLen")
+                .takes_value(true)
+                .help("skip indexing a file if it has a line longer than this size in bytes"),
+        )
+        .arg(
+            clap::Arg::with_name("MAX_TRIGRAMS_COUNT")
+                .long("maxtrigrams")
+                .takes_value(true)
+                .help("skip indexing a file if it has more than this number of trigrams"),
+        )
+        .arg(
+            clap::Arg::with_name("MAX_INVALID_UTF8_RATIO")
+                .long("maxinvalidutf8ratio")
+                .takes_value(true)
+                .help(
+                    "skip indexing a file if it has more than this ratio of invalid UTF-8 \
+                   sequences",
+                ),
+        )
+        .arg(
+            clap::Arg::with_name("EXCLUDE_FILE")
+                .long("exclude")
+                .takes_value(true)
+                .help("path to file containing a list of file patterns to exclude from indexing"),
+        )
+        .arg(
+            clap::Arg::with_name("FILE")
+                .long("filelist")
+                .takes_value(true)
+                .help("path to file containing a list of file paths to index"),
+        )
+        .arg(
+            clap::Arg::with_name("verbose")
+                .long("verbose")
+                .help("print extra information"),
+        )
+        .arg(
+            clap::Arg::with_name("logskip")
+                .long("logskip")
+                .help("print why a file was skipped from indexing"),
+        )
         .get_matches();
 
     let max_log_level = if matches.is_present("verbose") {
@@ -213,7 +245,10 @@ fn main() {
             // does not exist so nothing to do
             return;
         }
-        let meta = p.metadata().expect("failed to get metadata for file!").file_type();
+        let meta = p
+            .metadata()
+            .expect("failed to get metadata for file!")
+            .file_type();
         if is_regular_file(meta) {
             std::fs::remove_file(p).expect("failed to remove file");
         }
@@ -222,8 +257,10 @@ fn main() {
     if let Some(exc_path_str) = matches.value_of("EXCLUDE_FILE") {
         let exclude_path = Path::new(exc_path_str);
         let f = BufReader::new(File::open(exclude_path).expect("exclude file open error"));
-        excludes.extend(f.lines()
-            .map(|f| glob::Pattern::new(f.unwrap().trim()).unwrap()));
+        excludes.extend(
+            f.lines()
+                .map(|f| glob::Pattern::new(f.unwrap().trim()).unwrap()),
+        );
     }
     if let Some(file_list_str) = matches.value_of("FILE") {
         let file_list = Path::new(file_list_str);
@@ -238,7 +275,8 @@ fn main() {
         }
     }
 
-    let mut paths: Vec<PathBuf> = args.iter()
+    let mut paths: Vec<PathBuf> = args
+        .iter()
         .filter(|f| !f.is_empty())
         .map(|f| env::current_dir().unwrap().join(f))
         .map(|f| normalize(f).unwrap())
@@ -299,8 +337,10 @@ fn main() {
 
     for each_path in paths {
         if !each_path.exists() || !each_path.is_dir() {
-            warn!("{} - directory doesn't exist. Skipping...",
-                  each_path.display());
+            warn!(
+                "{} - directory doesn't exist. Skipping...",
+                each_path.display()
+            );
             continue;
         }
         info!("index {}", each_path.display());

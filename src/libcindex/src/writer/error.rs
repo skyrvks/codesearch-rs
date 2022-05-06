@@ -2,7 +2,6 @@ use std::error::{self, Error};
 use std::fmt;
 use std::io;
 
-
 /// The Error type for indexing operations.
 ///
 /// Errors can come from std::io::Error, or
@@ -32,7 +31,6 @@ pub enum IndexErrorKind {
     HighInvalidUtf8Ratio,
 }
 
-
 impl IndexError {
     /// Creates a new IndexError. Works the same as std::io::Error.
     ///
@@ -50,7 +48,8 @@ impl IndexError {
     /// }
     /// ```
     pub fn new<E>(kind: IndexErrorKind, error: E) -> IndexError
-        where E: Into<Box<error::Error + Send + Sync>>
+    where
+        E: Into<Box<error::Error + Send + Sync>>,
     {
         IndexError {
             kind: kind,
@@ -71,7 +70,6 @@ impl From<io::Error> for IndexError {
         }
     }
 }
-
 
 impl From<IndexError> for io::Error {
     fn from(e: IndexError) -> Self {
@@ -101,7 +99,6 @@ impl fmt::Display for IndexError {
         self.error.fmt(fmt)
     }
 }
-
 
 /// A specialized result type for Index operations.
 ///

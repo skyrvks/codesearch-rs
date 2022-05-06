@@ -1,6 +1,6 @@
 [package]
 name = "codesearch-rs"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Vernon Jones <vernonrjones@gmail.com>"]
 license = "BSD-3-Clause"
 description = "Tool for indexing then performing regular expression searches over large bodies of code"
@@ -22,7 +22,6 @@ log = "0.3"
 tempfile = "2.1"
 walkdir = "0.1"
 
-           
 consts = { path = "src/consts" }
 libcustomlogger = { path = "src/libcustomlogger" }
 libcsearch = { path = "src/libcsearch" }
@@ -36,3 +35,10 @@ profile = []
 runtime-dispatch-simd = ["bytecount/runtime-dispatch-simd"]
 
 [workspace]
+members = [
+  "src/libcindex",
+  "src/libcsearch",
+  "src/libcustomlogger",
+  "src/libprofiling",
+  "src/libvarint",
+]

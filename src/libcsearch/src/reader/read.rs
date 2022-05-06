@@ -413,7 +413,7 @@ impl<'a, 'b> PostReader<'a, 'b> {
             BTreeSet::new()
         }
     }
-    pub fn list(index: &'a IndexReader, trigram: u32, restrict: &Option<BTreeSet<u32>>) -> BTreeSet<u32> {
+    pub fn list(index: &'a IndexReader, trigram: u32, restrict: &'b Option<BTreeSet<u32>>) -> BTreeSet<u32> {
         if let Some(mut r) = Self::new(index, trigram, restrict) {
             let mut x = BTreeSet::<u32>::new();
             while r.next() {

@@ -41,6 +41,7 @@ use tempfile::tempfile;
 use super::postdatawriter::PostDataWriter;
 use super::postmapreader::{IdRange, PostMapReader};
 
+use std::cmp;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -53,8 +54,8 @@ where
     P3: AsRef<Path>,
 {
     let _frame_merge = libprofiling::profile("merge");
-    let ix1 = try!(IndexReader::open(src1));
-    let ix2 = try!(IndexReader::open(src2));
+    let ix1 = IndexReader::open(src1)?;
+    let ix2 = IndexReader::open(src2)?;
     let paths1 = ix1.indexed_paths();
     let paths2 = ix2.indexed_paths();
 
@@ -85,7 +86,7 @@ where
             map1.push(IdRange {
                 low: old,
                 high: lo,
-                new: new,
+                new,
             });
             new += lo - old;
         }
@@ -105,7 +106,7 @@ where
             map2.push(IdRange {
                 low: lo,
                 high: hi,
-                new: new,
+                new,
             });
             new += hi - lo;
         }
@@ -115,7 +116,7 @@ where
         map1.push(IdRange {
             low: i1,
             high: ix1.num_name as u32,
-            new: new,
+            new,
         });
         new += (ix1.num_name as u32) - i1;
     }
@@ -123,10 +124,10 @@ where
         panic!("merge: inconsistent index ({} < {})", i2, ix2.num_name);
     }
     let num_name = new;
-    let mut ix3 = BufWriter::new(try!(File::create(dest)));
-    try!(ix3.write(consts::MAGIC.as_bytes()));
+    let mut ix3 = BufWriter::new(File::create(dest)?);
+    ix3.write_all(consts::MAGIC.as_bytes())?;
 
-    let path_data = try!(get_offset(&mut ix3));
+    let path_data = get_offset(&mut ix3)?;
     let mut mi1 = 0;
     let mut mi2 = 0;
     let mut last = "\0".to_string(); // not a prefix of anything
@@ -146,14 +147,14 @@ where
             continue;
         }
         last = p.clone();
-        try!(ix3.write(&p.as_bytes()));
-        try!(ix3.write("\0".as_bytes()));
+        ix3.write_all(p.as_bytes())?;
+        ix3.write_all("\0".as_bytes())?;
     }
-    try!(ix3.write("\0".as_bytes()));
+    ix3.write_all("\0".as_bytes())?;
 
     // Merged list of names
-    let name_data = try!(get_offset(&mut ix3));
-    let mut name_index_file = BufWriter::new(try!(tempfile()));
+    let name_data = get_offset(&mut ix3)?;
+    let mut name_index_file = BufWriter::new(tempfile()?);
 
     new = 0;
     mi1 = 0;
@@ -164,24 +165,24 @@ where
         if mi1 < map1.len() && map1[mi1].new == new {
             for i in map1[mi1].low..map1[mi1].high {
                 let name = ix1.name(i);
-                let new_offset: u32 = try!(get_offset(&mut ix3)) as u32;
+                let new_offset: u32 = get_offset(&mut ix3)? as u32;
                 name_index_file
                     .write_u32::<BigEndian>(new_offset - (name_data as u32))
                     .unwrap();
-                try!(ix3.write(&name.as_bytes()));
-                try!(ix3.write("\0".as_bytes()));
+                ix3.write_all(name.as_bytes())?;
+                ix3.write_all("\0".as_bytes())?;
                 new += 1;
             }
             mi1 += 1;
         } else if mi2 < map2.len() && map2[mi2].new == new {
             for i in map2[mi2].low..map2[mi2].high {
                 let name = ix2.name(i);
-                let new_offset: u32 = try!(get_offset(&mut ix3)) as u32;
+                let new_offset: u32 = get_offset(&mut ix3)? as u32;
                 name_index_file
                     .write_u32::<BigEndian>(new_offset - (name_data as u32))
                     .unwrap();
-                try!(ix3.write(&name.as_bytes()));
-                try!(ix3.write("\0".as_bytes()));
+                ix3.write_all(name.as_bytes())?;
+                ix3.write_all("\0".as_bytes())?;
                 new += 1;
             }
             mi2 += 1;
@@ -189,23 +190,23 @@ where
             panic!("merge: inconsistent index");
         }
     }
-    if ((new * 4) as u64) != try!(get_offset(&mut name_index_file)) {
+    if ((new * 4) as u64) != get_offset(&mut name_index_file)? {
         panic!("merge: inconsistent index");
     }
     name_index_file
-        .write_u32::<BigEndian>(try!(get_offset(&mut ix3)) as u32)
+        .write_u32::<BigEndian>(get_offset(&mut ix3)? as u32)
         .unwrap();
 
-    let post_data = try!(get_offset(&mut ix3));
+    let post_data = get_offset(&mut ix3)?;
 
-    let post_index_file = try!(merge_list_of_posting_lists(
+    let post_index_file = merge_list_of_posting_lists(
         PostMapReader::new(&ix1, map1),
         PostMapReader::new(&ix2, map2),
         &mut ix3
-    ));
+    )?;
 
     // Name index
-    let name_index = try!(get_offset(&mut ix3));
+    let name_index = get_offset(&mut ix3)?;
     name_index_file.seek(SeekFrom::Start(0)).unwrap();
     copy_file(
         &mut ix3,
@@ -230,7 +231,7 @@ where
     ix3.write_u32::<BigEndian>(post_data as u32).unwrap();
     ix3.write_u32::<BigEndian>(name_index as u32).unwrap();
     ix3.write_u32::<BigEndian>(post_index as u32).unwrap();
-    try!(ix3.write(consts::TRAILER_MAGIC.as_bytes()));
+    ix3.write_all(consts::TRAILER_MAGIC.as_bytes())?;
     Ok(())
 }
 
@@ -240,45 +241,53 @@ fn merge_list_of_posting_lists(
     ix3: &mut BufWriter<File>,
 ) -> io::Result<BufWriter<File>> {
     // Merged list of posting lists.
-    let mut w = try!(PostDataWriter::new(ix3));
+    let mut w = PostDataWriter::new(ix3)?;
 
     loop {
         let _frame = libprofiling::profile("merge: merge list of posting lists");
-        if r1.trigram < r2.trigram {
-            w.trigram(r1.trigram);
-            while r1.next_id() {
-                w.file_id(r1.file_id);
-            }
-            r1.next_trigram();
-            w.end_trigram();
-        } else if r2.trigram < r1.trigram {
-            w.trigram(r2.trigram);
-            while r2.next_id() {
-                w.file_id(r2.file_id);
-            }
-            r2.next_trigram();
-            w.end_trigram();
-        } else {
-            if r1.trigram == u32::MAX {
-                break;
-            }
-            w.trigram(r1.trigram);
-            r1.next_id();
-            r2.next_id();
-            while r1.file_id < u32::MAX || r2.file_id < u32::MAX {
-                if r1.file_id < r2.file_id {
+        match r1.trigram.cmp(&r2.trigram) {
+            cmp::Ordering::Less => {
+                w.trigram(r1.trigram);
+                while r1.next_id() {
                     w.file_id(r1.file_id);
-                    r1.next_id();
-                } else if r2.file_id < r1.file_id {
-                    w.file_id(r2.file_id);
-                    r2.next_id();
-                } else {
-                    panic!("merge: inconsistent index");
                 }
+                r1.next_trigram();
+                w.end_trigram();
+            },
+            cmp::Ordering::Greater => {
+                w.trigram(r2.trigram);
+                while r2.next_id() {
+                    w.file_id(r2.file_id);
+                }
+                r2.next_trigram();
+                w.end_trigram();
+            },
+            cmp::Ordering::Equal => {
+                if r1.trigram == u32::MAX {
+                    break;
+                }
+                w.trigram(r1.trigram);
+                r1.next_id();
+                r2.next_id();
+                while r1.file_id < u32::MAX || r2.file_id < u32::MAX {
+                    match r1.file_id.cmp(&r2.file_id) {
+                        cmp::Ordering::Less => {
+                            w.file_id(r1.file_id);
+                            r1.next_id();
+                        },
+                        cmp::Ordering::Greater => {
+                            w.file_id(r2.file_id);
+                            r2.next_id();
+                        },
+                        cmp::Ordering::Equal => {
+                            panic!("merge: inconsistent index");
+                        },
+                    }
+                }
+                r1.next_trigram();
+                r2.next_trigram();
+                w.end_trigram();
             }
-            r1.next_trigram();
-            r2.next_trigram();
-            w.end_trigram();
         }
     }
 

@@ -36,8 +36,8 @@ impl<'a> PostMapReader<'a> {
         let _frame = libprofiling::profile("PostMapReader::new");
         let s = unsafe { index.as_slice() };
         let mut p = PostMapReader {
-            index: index,
-            id_map: id_map,
+            index,
+            id_map,
             tri_num: 0,
             trigram: u32::MAX,
             count: 0,
@@ -85,7 +85,7 @@ impl<'a> PostMapReader<'a> {
         while self.count > 0 {
             self.count -= 1;
             let (delta, n) = libvarint::read_uvarint(self.d).unwrap();
-            if n <= 0 || delta == 0 {
+            if n == 0 || delta == 0 {
                 panic!("merge: inconsistent index at trigram {}", self.trigram);
             }
             self.d = self.d.split_at(n as usize).1;
@@ -104,6 +104,6 @@ impl<'a> PostMapReader<'a> {
             return true;
         }
         self.file_id = u32::MAX;
-        return false;
+        false
     }
 }

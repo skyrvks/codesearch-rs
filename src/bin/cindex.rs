@@ -54,7 +54,7 @@ fn is_regular_file(meta: FileType) -> bool {
 
 #[cfg(windows)]
 fn normalize<P: AsRef<Path>>(p: P) -> io::Result<PathBuf> {
-    let mut out = try!(env::current_dir());
+    let mut out = env::current_dir()?;
     let mut it = p.as_ref().components();
     // only drop current directory if the first part of p is a prefix (C:/) or root (/)
     if let Some(c) = it.next() {
@@ -98,7 +98,7 @@ fn get_value_from_matches<F: FromStr>(matches: &clap::ArgMatches, name: &str) ->
     }
 }
 
-const ABOUT: &'static str = "
+const ABOUT: &str = "
 cindex prepares the trigram index for use by csearch.  The index
 is the file named by $CSEARCHINDEX, or else $HOME/.csearchindex.
 The simplest invocation is
@@ -127,7 +127,7 @@ With no path arguments, cindex -reset removes the index.";
 
 fn main() {
     let matches = clap::App::new("cindex")
-        .version(&crate_version!()[..])
+        .version(crate_version!())
         .author(
             "Vernon Jones <vernonrjones@gmail.com> (original code copyright 2011 the Go \
                  authors)",
@@ -227,9 +227,9 @@ fn main() {
         args.extend(p.map(String::from));
     }
 
-    matches.value_of("INDEX_FILE").map(|p| {
+    if let Some(p) = matches.value_of("INDEX_FILE") {
         env::set_var("CSEARCHINDEX", p);
-    });
+    }
 
     if matches.is_present("list-paths") {
         let i = open_index_or_fail();
@@ -331,7 +331,7 @@ fn main() {
         }
         info!("flush index");
         i.flush().expect("failed to flush index to disk");
-        drop(_frame);
+        // drop(_frame);
         libprofiling::print_profiling();
     });
 
@@ -350,7 +350,7 @@ fn main() {
             .into_iter()
             .filter_entry(|d| {
                 let p = d.path();
-                !excludes.iter().any(|r| r.matches_path(&p))
+                !excludes.iter().any(|r| r.matches_path(p))
             })
             .filter_map(Result::ok)
             .filter(|d| !d.file_type().is_dir());
@@ -362,14 +362,14 @@ fn main() {
     drop(tx);
     h.join().unwrap();
     if needs_merge {
-        let dest_path = index_path.clone() + &"~";
+        let dest_path = index_path.clone() + "~";
         let src1_path = libcsearch::csearch_index();
         let src2_path = index_path.clone();
         info!("merge {} {}", src1_path, src2_path);
         libcindex::merge::merge(dest_path, src1_path, src2_path).unwrap();
         fs::remove_file(index_path.clone()).unwrap();
         fs::remove_file(libcsearch::csearch_index()).unwrap();
-        fs::rename(index_path + &"~", libcsearch::csearch_index()).unwrap();
+        fs::rename(index_path + "~", libcsearch::csearch_index()).unwrap();
     }
 
     info!("done");

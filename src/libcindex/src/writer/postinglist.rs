@@ -18,7 +18,7 @@ impl<'a, I: 'a + Iterator<Item = PostEntry>> TakeWhilePeek<'a, I> {
         } else {
             return None;
         };
-        Some(TakeWhilePeek { trigram: t, it: it })
+        Some(TakeWhilePeek { trigram: t, it })
     }
     pub fn trigram(&self) -> u32 {
         self.trigram

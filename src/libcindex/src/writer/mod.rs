@@ -31,7 +31,7 @@ pub fn copy_file<R: Read + Seek, W: Write>(dest: &mut BufWriter<W>, src: &mut R)
     let mut buf_src = BufReader::new(src);
     loop {
         let length = if let Ok(b) = buf_src.fill_buf() {
-            if b.len() == 0 {
+            if b.is_empty() {
                 break;
             }
             dest.write_all(b).unwrap();
@@ -49,12 +49,12 @@ pub trait WriteTrigram: Write {
     ///
     /// Writes 24 bits of `t` into the stream
     fn write_trigram(&mut self, t: u32) -> io::Result<()> {
-        let mut buf: [u8; 3] = [
+        let buf: [u8; 3] = [
             ((t >> 16) & 0xff) as u8,
             ((t >> 8) & 0xff) as u8,
             (t & 0xff) as u8,
         ];
-        self.write_all(&mut buf)
+        self.write_all(&buf)
     }
 }
 

@@ -9,7 +9,7 @@ use std::io;
 #[derive(Debug)]
 pub struct IndexError {
     kind: IndexErrorKind,
-    error: Box<error::Error + Send + Sync>,
+    error: Box<dyn error::Error + Send + Sync>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,17 +42,16 @@ impl IndexError {
     ///     // like std::io::Error, IndexError can be created from strings
     ///     let custom_error = IndexError::new(IndexErrorKind::LineTooLong, "oh no!");
     ///     let mut b = Vec::<u8>::new();
-    ///     // std::io::Error can be cast to IndexError in a try! macro
-    ///     try!(b.write(b"some bytes"));
+    ///     b.write(b"some bytes")?;
     ///     Ok(())
     /// }
     /// ```
     pub fn new<E>(kind: IndexErrorKind, error: E) -> IndexError
     where
-        E: Into<Box<error::Error + Send + Sync>>,
+        E: Into<Box<dyn error::Error + Send + Sync>>,
     {
         IndexError {
-            kind: kind,
+            kind,
             error: error.into(),
         }
     }
@@ -80,23 +79,19 @@ impl From<IndexError> for io::Error {
     }
 }
 
-impl Error for IndexError {
-    fn description(&self) -> &str {
-        match self.kind {
-            IndexErrorKind::IoError(_) => self.error.description(),
-            IndexErrorKind::FileNameError => "filename conversion error",
-            IndexErrorKind::FileTooLong => "file too long",
-            IndexErrorKind::LineTooLong => "line too long",
-            IndexErrorKind::TooManyTrigrams => "too many trigrams in file",
-            IndexErrorKind::BinaryDataPresent => "binary file",
-            IndexErrorKind::HighInvalidUtf8Ratio => "Too many invalid utf-8 sequences",
-        }
-    }
-}
+impl Error for IndexError {}
 
 impl fmt::Display for IndexError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        self.error.fmt(fmt)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.kind {
+            IndexErrorKind::IoError(_) => write!(f, "{}", self.error),
+            IndexErrorKind::FileNameError => write!(f, "filename conversion error"),
+            IndexErrorKind::FileTooLong => write!(f, "file too long"),
+            IndexErrorKind::LineTooLong => write!(f, "line too long"),
+            IndexErrorKind::TooManyTrigrams => write!(f, "too many trigrams in file"),
+            IndexErrorKind::BinaryDataPresent => write!(f, "binary file"),
+            IndexErrorKind::HighInvalidUtf8Ratio => write!(f, "Too many invalid utf-8 sequences"),
+        }
     }
 }
 

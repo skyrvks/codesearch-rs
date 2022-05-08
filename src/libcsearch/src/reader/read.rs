@@ -97,7 +97,7 @@ pub type FileID = u32;
 /// let expr = Expr::parse(r"Pattern").unwrap();
 /// let q = RegexInfo::new(expr).unwrap().query;
 ///
-/// let idx = try!(IndexReader::open("foo.txt"));
+/// let idx = IndexReader::open("foo.txt")?;
 ///
 /// let matching_file_ids = idx.query(q);
 ///
@@ -154,7 +154,7 @@ impl IndexReader {
     /// # use libcsearch::reader::IndexReader;
     /// # use std::io;
     /// # fn foo() -> io::Result<()> {
-    /// let idx = try!(IndexReader::open("foo.txt"));
+    /// let idx = IndexReader::open("foo.txt")?;
     /// # Ok(())
     /// # }
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<IndexReader> {
@@ -182,19 +182,19 @@ impl IndexReader {
             };
             IndexReader {
                 data: m,
-                path_data: path_data,
-                name_data: name_data,
-                post_data: post_data,
-                name_index: name_index,
-                post_index: post_index,
-                num_name: num_name,
-                num_post: num_post,
+                path_data,
+                name_data,
+                post_data,
+                name_index,
+                post_index,
+                num_name,
+                num_post,
             }
         })
     }
 
     /// Takes a query and returns a list of matching file IDs.
-    pub fn query<'a>(&'a self, query: Query) -> PostSet<'a> {
+    pub fn query(&self, query: Query) -> PostSet {
         // writeln!(io::stderr(), "query {:?}", query).unwrap();
         match query.operation {
             QueryOperation::None => PostSet::new(self),
@@ -210,8 +210,8 @@ impl IndexReader {
                     .map(|t| (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32));
                 let mut sub_iter = query.sub.into_iter().map(|q| self.query(q));
                 let post_set = if let Some(i) = trigram_it.next() {
-                    let s = PostSet::new(self).or(i).unwrap_or(PostSet::new(self));
-                    Some(trigram_it.fold(s, |a, b| a.and(b).unwrap_or(PostSet::new(self))))
+                    let s = PostSet::new(self).or(i).unwrap_or_else(|| PostSet::new(self));
+                    Some(trigram_it.fold(s, |a, b| a.and(b).unwrap_or_else(|| PostSet::new(self))))
                 } else {
                     sub_iter.next()
                 };
@@ -233,7 +233,7 @@ impl IndexReader {
                     .into_iter()
                     .map(|t| (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32));
                 let post_set = trigram_it.fold(PostSet::new(self), |a, b| {
-                    a.or(b).unwrap_or(PostSet::new(self))
+                    a.or(b).unwrap_or_else(|| PostSet::new(self))
                 });
                 // writeln!(io::stderr(), "post set size = {:?}", post_set.list.len()).unwrap();
                 query
@@ -253,7 +253,14 @@ impl IndexReader {
         self.data.len()
     }
 
+    /// Returns `true` if `self` has a zero length
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns the index as a slice
+    /// # Safety
+    /// Internal data Mmap is a unsafe function
     pub unsafe fn as_slice(&self) -> &[u8] {
         self.data.as_slice()
     }
@@ -264,7 +271,7 @@ impl IndexReader {
         let mut offset = self.path_data as usize;
         loop {
             let s = self.extract_string_at(offset);
-            if s.len() == 0 {
+            if s.is_empty() {
                 break;
             }
             offset += s.len() + 1;
@@ -350,6 +357,8 @@ impl IndexReader {
     }
 }
 
+// index and offset are never read
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PostReader<'a, 'b> {
     index: &'a IndexReader,
@@ -376,12 +385,12 @@ impl<'a, 'b> PostReader<'a, 'b> {
             v.split_at(split_point).1
         };
         Some(PostReader {
-            index: index,
-            count: count,
-            offset: offset,
+            index,
+            count,
+            offset,
             fileid: -1,
             d: view,
-            restrict: restrict,
+            restrict,
         })
     }
     pub fn and(
@@ -439,7 +448,7 @@ impl<'a, 'b> PostReader<'a, 'b> {
         while self.count > 0 {
             self.count -= 1;
             let (delta, n) = libvarint::read_uvarint(self.d).unwrap();
-            if n <= 0 || delta == 0 {
+            if n == 0 || delta == 0 {
                 panic!("corrupt index");
             }
             self.d = self.d.split_at(n as usize).1;
@@ -457,7 +466,7 @@ impl<'a, 'b> PostReader<'a, 'b> {
         // list should end with terminating 0 delta
         // FIXME: add bounds checking
         self.fileid = -1;
-        return false;
+        false
     }
 }
 
@@ -469,7 +478,7 @@ pub struct PostSet<'a> {
 impl<'a> PostSet<'a> {
     pub fn new(index: &'a IndexReader) -> Self {
         PostSet {
-            index: index,
+            index,
             list: BTreeSet::new(),
         }
     }
@@ -478,17 +487,13 @@ impl<'a> PostSet<'a> {
     }
     pub fn and(self, trigram: u32) -> Option<Self> {
         let (mut d, count) = unsafe {
-            if let Some(tup) = Self::make_view(&self.index, trigram) {
-                tup
-            } else {
-                return None;
-            }
+            Self::make_view(self.index, trigram)?
         };
         let mut fileid = -1;
         let mut h = BTreeSet::new();
         for _ in 0..count {
             let (delta, n) = libvarint::read_uvarint(d).unwrap();
-            if n <= 0 || delta == 0 {
+            if n == 0 || delta == 0 {
                 panic!("corrupt index");
             }
             d = d.split_at(n as usize).1;
@@ -504,7 +509,7 @@ impl<'a> PostSet<'a> {
     }
     pub fn or(mut self, trigram: u32) -> Option<Self> {
         let (mut d, count) = unsafe {
-            if let Some(tup) = Self::make_view(&self.index, trigram) {
+            if let Some(tup) = Self::make_view(self.index, trigram) {
                 tup
             } else {
                 return Some(self);
@@ -514,7 +519,7 @@ impl<'a> PostSet<'a> {
         // writeln!(io::stderr(), "TRI 0x{:6x}: {}", trigram, count).unwrap();
         for _ in 0..count {
             let (delta, n) = libvarint::read_uvarint(d).unwrap();
-            if n <= 0 || delta == 0 {
+            if n == 0 || delta == 0 {
                 panic!("corrupt index");
             }
             d = d.split_at(n as usize).1;

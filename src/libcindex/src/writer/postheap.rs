@@ -19,9 +19,9 @@ impl PostChunk {
             let mut m = v.into_iter();
             let e = m.next().unwrap();
             Some(PostChunk {
-                e: e,
-                m: m,
-                size: size,
+                e,
+                m,
+                size,
             })
         }
     }
@@ -127,7 +127,7 @@ pub struct IntoIter {
 impl IntoIter {
     pub fn new(inner: PostHeap) -> Self {
         IntoIter {
-            inner: inner,
+            inner,
             place: 0,
         }
     }

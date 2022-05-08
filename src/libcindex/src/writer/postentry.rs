@@ -7,11 +7,11 @@ impl PostEntry {
     }
     pub fn trigram(&self) -> u32 {
         let &PostEntry(ref u) = self;
-        return (u >> 32) as u32;
+        (u >> 32) as u32
     }
     pub fn file_id(&self) -> u32 {
         let &PostEntry(ref u) = self;
-        return (u & 0xffffffff) as u32;
+        (u & 0xffffffff) as u32
     }
     pub fn value(&self) -> u64 {
         let &PostEntry(v) = self;

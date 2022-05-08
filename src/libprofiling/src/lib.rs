@@ -15,9 +15,7 @@ mod profiling {
 #[macro_use]
 mod profiling {
     #[allow(dead_code)]
-    pub fn profile(_: &'static str) -> () {
-        ()
-    }
+    pub fn profile(_: &'static str) {}
     #[allow(dead_code)]
     pub fn print_profiling() {
         // no-op

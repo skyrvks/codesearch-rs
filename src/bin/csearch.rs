@@ -60,7 +60,7 @@ pub struct MatchOptions {
     pub max_count: Option<usize>,
 }
 
-const ABOUT: &'static str = "
+const ABOUT: &str = "
 Csearch behaves like grep over all indexed files, searching for regexp,
 an RE2 (nearly PCRE) regular expression.
 
@@ -95,14 +95,14 @@ pub fn is_color_output_available() -> bool {
     if t == "dumb" {
         return false;
     }
-    return true;
+    true
 }
 
 pub fn main() {
     libcustomlogger::init(log::LogLevelFilter::Info).unwrap();
 
     let matches = clap::App::new("csearch")
-        .version(&crate_version!()[..])
+        .version(crate_version!())
         .author(
             "Vernon Jones <vernonrjones@gmail.com> (original code copyright 2011 the Go \
                  authors)",
@@ -196,9 +196,9 @@ pub fn main() {
     let pattern = matches.value_of("PATTERN").expect("Failed to get PATTERN");
 
     // possibly override the csearchindex
-    matches.value_of("INDEX_FILE").map(|p| {
+    if let Some(p) = matches.value_of("INDEX_FILE") {
         env::set_var("CSEARCHINDEX", p);
-    });
+    }
 
     // combine cmdline options used for matching/output into a structure
     let match_options = MatchOptions {
@@ -209,7 +209,7 @@ pub fn main() {
             PrintFormat::Normal
         },
         print_count: matches.is_present("count"),
-        ignore_case: ignore_case,
+        ignore_case,
         files_with_matches_only: matches.is_present("files-with-matches"),
         line_number: matches.is_present("line-number")
             || matches.is_present("visual-studio-format"),
@@ -218,7 +218,7 @@ pub fn main() {
             && is_color_output_available(),
         max_count: matches
             .value_of("NUM")
-            .map(|s| match usize::from_str_radix(s, 10) {
+            .map(|s| match s.parse::<usize>() {
                 Ok(n) => n,
                 Err(parse_err) => panic!("NUM: {}", parse_err),
             }),
@@ -239,7 +239,7 @@ pub fn main() {
         let expr = regex_syntax::ExprBuilder::new()
             .unicode(false)
             .case_insensitive(matches.is_present("ignore-case"))
-            .parse(&pattern)
+            .parse(pattern)
             .unwrap();
         let q = RegexInfo::new(expr).unwrap().query;
         // panic!("query = {} --- {:?}", q.format_as_string(), q);
@@ -249,8 +249,8 @@ pub fn main() {
     // println!("identified {} possible queries", post.len());
 
     // If provided, filter possibly matching files via FILE_PATTERN
-    if let Some(ref file_pattern_str) = matches.value_of("FILE_PATTERN") {
-        let file_pattern = match Regex::new(&file_pattern_str) {
+    if let Some(file_pattern_str) = matches.value_of("FILE_PATTERN") {
+        let file_pattern = match Regex::new(file_pattern_str) {
             Ok(r) => r,
             Err(e) => panic!("FILE_PATTERN: {}", e),
         };
@@ -354,7 +354,7 @@ pub fn main() {
                     stdout
                         .set_color(ColorSpec::new().set_bold(true).set_fg(Some(Color::Blue)))
                         .unwrap();
-                    stdout.write(&line_number.as_bytes()).unwrap();
+                    stdout.write_all(line_number.as_bytes()).unwrap();
                     stdout.reset().unwrap();
                     if match_options.print_format == PrintFormat::VisualStudio {
                         write!(&mut stdout, ")").unwrap();
@@ -364,14 +364,14 @@ pub fn main() {
                 let line = &buffer[each_match.start()..each_match.end()];
                 if match_options.with_color {
                     let mut start_from = 0;
-                    for m in matcher.find_iter(&line) {
+                    for m in matcher.find_iter(line) {
                         let to_write = &line[start_from..m.start()];
-                        write!(&mut stdout, "{}", String::from_utf8_lossy(&to_write)).unwrap();
+                        write!(&mut stdout, "{}", String::from_utf8_lossy(to_write)).unwrap();
                         stdout
                             .set_color(ColorSpec::new().set_bold(true).set_fg(Some(Color::Red)))
                             .unwrap();
                         let to_write = &line[m.start()..m.end()];
-                        write!(&mut stdout, "{}", String::from_utf8_lossy(&to_write)).unwrap();
+                        write!(&mut stdout, "{}", String::from_utf8_lossy(to_write)).unwrap();
                         stdout.reset().unwrap();
                         start_from = m.end();
                     }
@@ -380,10 +380,10 @@ pub fn main() {
                         write!(&mut stdout, "{}", to_write).unwrap();
                     }
                 } else {
-                    write!(&mut stdout, "{}", String::from_utf8_lossy(&line)).unwrap()
+                    write!(&mut stdout, "{}", String::from_utf8_lossy(line)).unwrap()
                 }
                 if line.last() != Some(&b'\n') {
-                    stdout.write(&[b'\n']).unwrap();
+                    stdout.write_all(&[b'\n']).unwrap();
                 }
                 stdout.flush().unwrap();
             }
@@ -426,7 +426,7 @@ impl PathSimplifier {
             PathBuf::from(
                 p.as_ref()
                     .strip_prefix(&env::current_dir().unwrap())
-                    .unwrap_or(p.as_ref()),
+                    .unwrap_or_else(|_| p.as_ref()),
             )
         } else {
             PathBuf::from(p.as_ref())

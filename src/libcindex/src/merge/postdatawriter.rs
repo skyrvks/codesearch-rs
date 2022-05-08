@@ -26,11 +26,11 @@ pub struct PostDataWriter<'a, W: 'a + Write + Seek> {
 
 impl<'a, W: Write + Seek> PostDataWriter<'a, W> {
     pub fn new(out: &'a mut BufWriter<W>) -> io::Result<Self> {
-        let base = try!(get_offset(out)) as u32;
+        let base = get_offset(out)? as u32;
         Ok(PostDataWriter {
-            out: out,
-            post_index_file: BufWriter::with_capacity(256 << 10, try!(tempfile())),
-            base: base,
+            out,
+            post_index_file: BufWriter::with_capacity(256 << 10, tempfile()?),
+            base,
             count: 0,
             offset: 0,
             last: 0,

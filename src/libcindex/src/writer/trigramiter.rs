@@ -35,9 +35,9 @@ impl<R: Read> TrigramReader<R> {
             current_value: 0,
             num_read: 0,
             inv_cnt: 0,
-            max_invalid: max_invalid,
+            max_invalid,
             line_len: 0,
-            max_line_len: max_line_len,
+            max_line_len,
             error: None,
         }
     }
@@ -109,7 +109,7 @@ impl<R: Read> Iterator for TrigramReader<R> {
             self.error = Some(Err(e));
             None
         } else {
-            if c == ('\n' as u8) {
+            if c == b'\n' {
                 self.line_len = 0;
             } else {
                 self.line_len += 1;
@@ -122,13 +122,13 @@ impl<R: Read> Iterator for TrigramReader<R> {
 fn valid_utf8(c1: u8, c2: u8) -> bool {
     if c1 < 0x80 {
         // 1-byte, must be followed by 1-byte or first of multi-byte
-        (c2 < 0x80) || (0xc0 <= c2) && (c2 < 0xf8)
+        (c2 < 0x80) || (0xc0..0xf8).contains(&c2)
     } else if c1 < 0xc0 {
         // continuation byte, can be followed by nearly anything
-        (c2 < 0xf8)
+        c2 < 0xf8
     } else if c1 < 0xf8 {
         // first of multi-byte, must be followed by continuation byte
-        (0x80 <= c2) && (c2 < 0xc0)
+        (0x80..0xc0).contains(&c2)
     } else {
         false
     }

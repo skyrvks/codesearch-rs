@@ -18,8 +18,7 @@ pub struct SparseSet {
 
 impl SparseSet {
     pub fn new() -> SparseSet {
-        let mut v = Vec::with_capacity(MAX_SIZE as usize);
-        unsafe { v.set_len(MAX_SIZE as usize) };
+        let v: Vec::<u32> = vec![0; MAX_SIZE as usize];
         SparseSet {
             sparse: v,
             dense: Vec::with_capacity(STARTING_DENSE_SIZE),
@@ -54,6 +53,12 @@ impl SparseSet {
         let mut dense_new = Vec::with_capacity(STARTING_DENSE_SIZE);
         mem::swap(&mut dense_new, &mut self.dense);
         dense_new
+    }
+}
+
+impl Default for SparseSet {
+    fn default() -> SparseSet {
+        SparseSet::new()
     }
 }
 

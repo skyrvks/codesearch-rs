@@ -20,7 +20,7 @@ fn main() {
     libcustomlogger::init(log::LogLevelFilter::Info).unwrap();
 
     let matches = clap::App::new("cinspect")
-        .version(&crate_version!()[..])
+        .version(crate_version!())
         .author("Vernon Jones <vernonrjones@gmail.com>")
         .about("helper tool to inspect index files")
         .arg(
@@ -50,9 +50,9 @@ fn main() {
         .get_matches();
 
     // possibly override the csearchindex
-    matches.value_of("INDEX_FILE").map(|p| {
+    if let Some(p) = matches.value_of("INDEX_FILE") {
         env::set_var("CSEARCHINDEX", p);
-    });
+    }
 
     let index_path = libcsearch::csearch_index();
     let idx = IndexReader::open(index_path).unwrap();
@@ -69,9 +69,9 @@ fn main() {
     }
 
     if let Some(t) = matches.value_of("with-trigram") {
-        let t_num = u32::from_str_radix(t, 10).unwrap();
-        let mut h: Option<BTreeSet<u32>> = None;
-        let file_ids = libcsearch::reader::PostReader::list(&idx, t_num, &mut h);
+        let t_num = t.parse::<u32>().unwrap();
+        let h: Option<BTreeSet<u32>> = None;
+        let file_ids = libcsearch::reader::PostReader::list(&idx, t_num, &h);
         println!("{:?}", file_ids);
     }
 }
@@ -92,13 +92,13 @@ fn dump_posting_list(idx: &IndexReader) -> io::Result<()> {
             .0
     };
     for i in 0..idx.num_post {
-        try!(writeln!(
+        writeln!(
             &mut std::io::stdout(),
             "{} {} {}",
             d[i * POST_ENTRY_SIZE],
             d[i * POST_ENTRY_SIZE + 1],
             d[i * POST_ENTRY_SIZE + 2]
-        ));
+        )?;
     }
     Ok(())
 }

@@ -196,10 +196,9 @@ impl IndexWriter {
         let offset = get_offset(&mut self.name_data)?;
         self.name_index.write_u32::<BigEndian>(offset as u32)?;
 
-        let s = filename.as_ref().to_str().ok_or_else(|| IndexError::new(
-            IndexErrorKind::FileNameError,
-            "UTF-8 Conversion error"
-        ))?;
+        let s = filename.as_ref().to_str().ok_or_else(|| {
+            IndexError::new(IndexErrorKind::FileNameError, "UTF-8 Conversion error")
+        })?;
         self.name_data.write_all(s.as_bytes())?;
         self.name_data.write_u8(0)?;
 
@@ -218,10 +217,9 @@ impl IndexWriter {
         off[0] = get_offset(&mut self.index)?;
 
         for p in &self.paths {
-            let path_as_bytes = p.to_str().map(str::as_bytes).ok_or_else(|| IndexError::new(
-                IndexErrorKind::FileNameError,
-                "UTF-8 Conversion error"
-            ))?;
+            let path_as_bytes = p.to_str().map(str::as_bytes).ok_or_else(|| {
+                IndexError::new(IndexErrorKind::FileNameError, "UTF-8 Conversion error")
+            })?;
             self.index.write_all(path_as_bytes)?;
             self.index.write_u8(0)?;
         }

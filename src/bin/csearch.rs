@@ -216,12 +216,10 @@ pub fn main() {
         with_color: !matches.is_present("nocolor")
             && !matches.is_present("visual-studio-format")
             && is_color_output_available(),
-        max_count: matches
-            .value_of("NUM")
-            .map(|s| match s.parse::<usize>() {
-                Ok(n) => n,
-                Err(parse_err) => panic!("NUM: {}", parse_err),
-            }),
+        max_count: matches.value_of("NUM").map(|s| match s.parse::<usize>() {
+            Ok(n) => n,
+            Err(parse_err) => panic!("NUM: {}", parse_err),
+        }),
     };
 
     // Get the index from file

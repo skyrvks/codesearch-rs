@@ -199,7 +199,7 @@ impl RegexInfo {
                         bytes.into_iter().fold(Ok(Self::empty_string()), |info, c| {
                             let analyzed = Self::analyze(Expr::LiteralBytes {
                                 bytes: vec![c],
-                                casei: true
+                                casei: true,
                             })?;
                             info.map(|info| concat(info, analyzed))
                         })
@@ -528,8 +528,7 @@ fn simplify(mut info: RegexInfo, force: bool) -> RegexInfo {
     }
 
     if let Some(ref exact) = info.exact_set {
-        if exact.len() > 7 || (min_string_len(exact) >= 3 && force) || min_string_len(exact) >= 4
-        {
+        if exact.len() > 7 || (min_string_len(exact) >= 3 && force) || min_string_len(exact) >= 4 {
             for s in exact {
                 let n = s.len();
                 if n < 3 {

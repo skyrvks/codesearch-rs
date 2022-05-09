@@ -210,7 +210,9 @@ impl IndexReader {
                     .map(|t| (t[0] as u32) << 16 | (t[1] as u32) << 8 | (t[2] as u32));
                 let mut sub_iter = query.sub.into_iter().map(|q| self.query(q));
                 let post_set = if let Some(i) = trigram_it.next() {
-                    let s = PostSet::new(self).or(i).unwrap_or_else(|| PostSet::new(self));
+                    let s = PostSet::new(self)
+                        .or(i)
+                        .unwrap_or_else(|| PostSet::new(self));
                     Some(trigram_it.fold(s, |a, b| a.and(b).unwrap_or_else(|| PostSet::new(self))))
                 } else {
                     sub_iter.next()
@@ -486,9 +488,7 @@ impl<'a> PostSet<'a> {
         self.list
     }
     pub fn and(self, trigram: u32) -> Option<Self> {
-        let (mut d, count) = unsafe {
-            Self::make_view(self.index, trigram)?
-        };
+        let (mut d, count) = unsafe { Self::make_view(self.index, trigram)? };
         let mut fileid = -1;
         let mut h = BTreeSet::new();
         for _ in 0..count {

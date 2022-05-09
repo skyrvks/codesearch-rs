@@ -18,11 +18,7 @@ impl PostChunk {
         } else {
             let mut m = v.into_iter();
             let e = m.next().unwrap();
-            Some(PostChunk {
-                e,
-                m,
-                size,
-            })
+            Some(PostChunk { e, m, size })
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -126,10 +122,7 @@ pub struct IntoIter {
 
 impl IntoIter {
     pub fn new(inner: PostHeap) -> Self {
-        IntoIter {
-            inner,
-            place: 0,
-        }
+        IntoIter { inner, place: 0 }
     }
 }
 

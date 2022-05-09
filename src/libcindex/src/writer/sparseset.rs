@@ -18,7 +18,7 @@ pub struct SparseSet {
 
 impl SparseSet {
     pub fn new() -> SparseSet {
-        let v: Vec::<u32> = vec![0; MAX_SIZE as usize];
+        let v: Vec<u32> = vec![0; MAX_SIZE as usize];
         SparseSet {
             sparse: v,
             dense: Vec::with_capacity(STARTING_DENSE_SIZE),

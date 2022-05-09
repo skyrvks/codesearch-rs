@@ -202,7 +202,7 @@ where
     let post_index_file = merge_list_of_posting_lists(
         PostMapReader::new(&ix1, map1),
         PostMapReader::new(&ix2, map2),
-        &mut ix3
+        &mut ix3,
     )?;
 
     // Name index
@@ -253,7 +253,7 @@ fn merge_list_of_posting_lists(
                 }
                 r1.next_trigram();
                 w.end_trigram();
-            },
+            }
             cmp::Ordering::Greater => {
                 w.trigram(r2.trigram);
                 while r2.next_id() {
@@ -261,7 +261,7 @@ fn merge_list_of_posting_lists(
                 }
                 r2.next_trigram();
                 w.end_trigram();
-            },
+            }
             cmp::Ordering::Equal => {
                 if r1.trigram == u32::MAX {
                     break;
@@ -274,14 +274,14 @@ fn merge_list_of_posting_lists(
                         cmp::Ordering::Less => {
                             w.file_id(r1.file_id);
                             r1.next_id();
-                        },
+                        }
                         cmp::Ordering::Greater => {
                             w.file_id(r2.file_id);
                             r2.next_id();
-                        },
+                        }
                         cmp::Ordering::Equal => {
                             panic!("merge: inconsistent index");
-                        },
+                        }
                     }
                 }
                 r1.next_trigram();

@@ -1,5 +1,5 @@
-pub use self::merge::merge;
+pub use self::merger::merge;
 
-mod merge;
+mod merger;
 mod postdatawriter;
 mod postmapreader;

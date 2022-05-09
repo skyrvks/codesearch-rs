@@ -275,11 +275,20 @@ fn main() {
         }
     }
 
+    let log_skipped = matches.is_present("logskip");
     let mut paths: Vec<PathBuf> = args
         .iter()
         .filter(|f| !f.is_empty())
         .map(|f| env::current_dir().unwrap().join(f))
-        .map(|f| normalize(f).unwrap())
+        .filter_map(|f| match normalize(&f) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                if log_skipped {
+                    warn!("{}: skipped. {}", f.to_str().unwrap_or_default(), e.kind());
+                }
+                None
+            }
+        })
         .collect();
     paths.sort();
 
@@ -295,7 +304,6 @@ fn main() {
     // copying these variables into the worker thread
     let index_path_cloned = index_path.clone();
     let paths_cloned = paths.clone();
-    let log_skipped = matches.is_present("logskip");
     let h = thread::spawn(move || {
         let mut seen = HashSet::<OsString>::new();
         let mut i = match IndexWriter::new(index_path_cloned) {
@@ -336,27 +344,29 @@ fn main() {
     });
 
     for each_path in paths {
-        if !each_path.exists() || !each_path.is_dir() {
-            warn!(
-                "{} - directory doesn't exist. Skipping...",
-                each_path.display()
-            );
+        if !each_path.exists() {
+            warn!("{} - path doesn't exist. Skipping...", each_path.display());
             continue;
         }
-        info!("index {}", each_path.display());
-        let tx = tx.clone();
-        let files = WalkDir::new(each_path)
-            .follow_links(true)
-            .into_iter()
-            .filter_entry(|d| {
-                let p = d.path();
-                !excludes.iter().any(|r| r.matches_path(p))
-            })
-            .filter_map(Result::ok)
-            .filter(|d| !d.file_type().is_dir());
+        if each_path.is_dir() {
+            debug!("index {}", each_path.display());
+            let tx = tx.clone();
+            let files = WalkDir::new(each_path)
+                .follow_links(true)
+                .into_iter()
+                .filter_entry(|d| {
+                    let p = d.path();
+                    !excludes.iter().any(|r| r.matches_path(p))
+                })
+                .filter_map(Result::ok)
+                .filter(|d| !d.file_type().is_dir());
 
-        for d in files {
-            tx.send(OsString::from(d.path())).unwrap();
+            for d in files {
+                tx.send(OsString::from(d.path())).unwrap();
+            }
+        } else if each_path.is_file() {
+            debug!("index file {}", each_path.display());
+            tx.send(OsString::from(each_path)).unwrap();
         }
     }
     drop(tx);

@@ -20,8 +20,8 @@ extern crate libvarint;
 
 use libcindex::writer::{IndexErrorKind, IndexWriter};
 use libcsearch::reader::IndexReader;
-use log::LogLevelFilter;
-use walkdir::{WalkDir, WalkDirIterator};
+use log::LevelFilter;
+use walkdir::WalkDir;
 
 use std::collections::HashSet;
 use std::env;
@@ -214,9 +214,9 @@ fn main() {
         .get_matches();
 
     let max_log_level = if matches.is_present("verbose") {
-        LogLevelFilter::Trace
+        LevelFilter::Trace
     } else {
-        LogLevelFilter::Info
+        LevelFilter::Info
     };
     libcustomlogger::init(max_log_level).unwrap();
 

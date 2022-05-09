@@ -15,9 +15,9 @@ use self::libcsearch::reader::{IndexReader, PostReader};
 
 use common::{build_index, tri};
 
-const MERGE_PATHS_1: [&'static str; 3] = ["/a", "/b", "/c"];
+const MERGE_PATHS_1: [&str; 3] = ["/a", "/b", "/c"];
 
-const MERGE_PATHS_2: [&'static str; 2] = ["/b", "/cc"];
+const MERGE_PATHS_2: [&str; 2] = ["/b", "/cc"];
 
 fn merge_files_1() -> BTreeMap<&'static str, &'static str> {
     let mut m = BTreeMap::new();
@@ -78,7 +78,7 @@ fn test_merge() {
 
     fn check(ix: &IndexReader, trig: &str, l: &[u32]) {
         let t = trig.chars().collect::<Vec<char>>();
-        let l1 = PostReader::list(ix, tri(t[0], t[1], t[2]), &mut None);
+        let l1 = PostReader::list(ix, tri(t[0], t[1], t[2]), &None);
         let mut h: BTreeSet<u32> = BTreeSet::new();
         h.extend(l.iter().cloned());
         assert_eq!(l1, h);

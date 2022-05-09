@@ -32,7 +32,7 @@ use std::path::{Path, PathBuf};
 use grep::{Grep, GrepBuilder};
 use regex::bytes;
 use regex::Regex;
-use termcolor::{Color, ColorChoice, ColorSpec, Stdout, WriteColor};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PrintFormat {
@@ -99,7 +99,7 @@ pub fn is_color_output_available() -> bool {
 }
 
 pub fn main() {
-    libcustomlogger::init(log::LogLevelFilter::Info).unwrap();
+    libcustomlogger::init(log::LevelFilter::Info).unwrap();
 
     let matches = clap::App::new("csearch")
         .version(crate_version!())
@@ -284,9 +284,9 @@ pub fn main() {
         .build()
         .unwrap();
     let mut stdout = if match_options.with_color {
-        Stdout::new(ColorChoice::Auto)
+        StandardStream::stdout(ColorChoice::Auto)
     } else {
-        Stdout::new(ColorChoice::Never)
+        StandardStream::stdout(ColorChoice::Never)
     };
     let mut tmp = Vec::new();
     for file_id in post {

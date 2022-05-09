@@ -42,12 +42,9 @@ fn make_index() -> IndexReader {
 #[test]
 fn test_postreader_list() {
     let ix = make_index();
+    assert_eq!(PostReader::list(&ix, tri('S', 'e', 'a'), &None), set![1, 3]);
     assert_eq!(
-        PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
-        set![1, 3]
-    );
-    assert_eq!(
-        PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
+        PostReader::list(&ix, tri('G', 'o', 'o'), &None),
         set![1, 2, 3]
     );
 }
@@ -58,18 +55,18 @@ fn test_postreader_and() {
     assert_eq!(
         PostReader::and(
             &ix,
-            PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
+            PostReader::list(&ix, tri('S', 'e', 'a'), &None),
             tri('G', 'o', 'o'),
-            &mut None
+            &None
         ),
         set![1, 3]
     );
     assert_eq!(
         PostReader::and(
             &ix,
-            PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
+            PostReader::list(&ix, tri('G', 'o', 'o'), &None),
             tri('S', 'e', 'a'),
-            &mut None
+            &None
         ),
         set![1, 3]
     );
@@ -81,18 +78,18 @@ fn test_postreader_or() {
     assert_eq!(
         PostReader::or(
             &ix,
-            PostReader::list(&ix, tri('G', 'o', 'o'), &mut None),
+            PostReader::list(&ix, tri('G', 'o', 'o'), &None),
             tri('S', 'e', 'a'),
-            &mut None
+            &None
         ),
         set![1, 2, 3]
     );
     assert_eq!(
         PostReader::or(
             &ix,
-            PostReader::list(&ix, tri('S', 'e', 'a'), &mut None),
+            PostReader::list(&ix, tri('S', 'e', 'a'), &None),
             tri('G', 'o', 'o'),
-            &mut None
+            &None
         ),
         set![1, 2, 3]
     );

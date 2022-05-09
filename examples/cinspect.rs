@@ -17,7 +17,7 @@ use std::env;
 use std::io::{self, Write};
 
 fn main() {
-    libcustomlogger::init(log::LogLevelFilter::Info).unwrap();
+    libcustomlogger::init(log::LevelFilter::Info).unwrap();
 
     let matches = clap::App::new("cinspect")
         .version(crate_version!())

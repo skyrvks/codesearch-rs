@@ -3,28 +3,28 @@ extern crate chrono;
 extern crate log;
 
 use chrono::Local;
-use log::{Log, LogLevelFilter, LogMetadata, LogRecord, SetLoggerError};
+use log::{LevelFilter, Log, Metadata, Record, SetLoggerError};
 
-pub struct Logger {
-    max_level: LogLevelFilter,
-}
+static LOGGER: Logger = Logger;
+
+pub struct Logger;
 
 impl Log for Logger {
-    fn enabled(&self, metadata: &LogMetadata) -> bool {
-        metadata.level() <= self.max_level
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= log::max_level()
     }
-    fn log(&self, record: &LogRecord) {
+    fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {
             let now = Local::now();
             let now_time = now.format("%Y/%m/%d %H:%M:%S");
             println!("{} {}", now_time, record.args());
         }
     }
+    fn flush(&self) {}
 }
 
-pub fn init(level: LogLevelFilter) -> Result<(), SetLoggerError> {
-    log::set_logger(|max_log_level| {
-        max_log_level.set(level);
-        Box::new(Logger { max_level: level })
-    })
+pub fn init(level: LevelFilter) -> Result<(), SetLoggerError> {
+    log::set_logger(&LOGGER)?;
+    log::set_max_level(level);
+    Ok(())
 }

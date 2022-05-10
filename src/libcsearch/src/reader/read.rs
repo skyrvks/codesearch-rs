@@ -73,7 +73,7 @@ use std::path::Path;
 use byteorder::{BigEndian, ReadBytesExt};
 use consts::TRAILER_MAGIC;
 use libvarint;
-use memmap::{Mmap, Protection};
+use memmap::Mmap;
 
 use super::search;
 use regexp::{Query, QueryOperation};
@@ -135,18 +135,13 @@ impl Debug for IndexReader {
 }
 
 fn extract_data_from_mmap(data: &Mmap, offset: usize) -> u32 {
-    unsafe {
-        let mut buf = Cursor::new(&data.as_slice()[offset..offset + 4]);
-        buf.read_u32::<BigEndian>().unwrap()
-    }
+    let mut buf = Cursor::new(&data[offset..offset + 4]);
+    buf.read_u32::<BigEndian>().unwrap()
 }
 
 impl IndexReader {
     fn extract_data(&self, offset: usize) -> u32 {
-        unsafe {
-            let mut buf = Cursor::new(&self.data.as_slice()[offset..offset + 4]);
-            buf.read_u32::<BigEndian>().unwrap()
-        }
+        extract_data_from_mmap(&self.data, offset)
     }
     /// Open an index file from path
     ///
@@ -158,38 +153,38 @@ impl IndexReader {
     /// # Ok(())
     /// # }
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<IndexReader> {
-        Mmap::open_path(path, Protection::Read).map(|m| {
-            let n = m.len() - (TRAILER_MAGIC.bytes().len()) - 5 * 4;
-            let path_data = extract_data_from_mmap(&m, n);
-            let name_data = extract_data_from_mmap(&m, n + 4);
-            let post_data = extract_data_from_mmap(&m, n + 8);
-            let name_index = extract_data_from_mmap(&m, n + 12) as usize;
-            let post_index = extract_data_from_mmap(&m, n + 16) as usize;
-            let num_name: usize = if post_index > name_index {
-                let d = (post_index - name_index) / 4;
-                if d == 0 {
-                    0
-                } else {
-                    (d - 1) as usize
-                }
-            } else {
+        let file = std::fs::File::open(&path)?;
+        let m = unsafe { Mmap::map(&file)? };
+        let n = m.len() - (TRAILER_MAGIC.bytes().len()) - 5 * 4;
+        let path_data = extract_data_from_mmap(&m, n);
+        let name_data = extract_data_from_mmap(&m, n + 4);
+        let post_data = extract_data_from_mmap(&m, n + 8);
+        let name_index = extract_data_from_mmap(&m, n + 12) as usize;
+        let post_index = extract_data_from_mmap(&m, n + 16) as usize;
+        let num_name: usize = if post_index > name_index {
+            let d = (post_index - name_index) / 4;
+            if d == 0 {
                 0
-            };
-            let num_post = if n > (post_index as usize) {
-                (n - (post_index as usize)) / (3 + 4 + 4)
             } else {
-                0
-            };
-            IndexReader {
-                data: m,
-                path_data,
-                name_data,
-                post_data,
-                name_index,
-                post_index,
-                num_name,
-                num_post,
+                (d - 1) as usize
             }
+        } else {
+            0
+        };
+        let num_post = if n > (post_index as usize) {
+            (n - (post_index as usize)) / (3 + 4 + 4)
+        } else {
+            0
+        };
+        Ok(IndexReader {
+            data: m,
+            path_data,
+            name_data,
+            post_data,
+            name_index,
+            post_index,
+            num_name,
+            num_post,
         })
     }
 
@@ -261,10 +256,8 @@ impl IndexReader {
     }
 
     /// Returns the index as a slice
-    /// # Safety
-    /// Internal data Mmap is a unsafe function
-    pub unsafe fn as_slice(&self) -> &[u8] {
-        self.data.as_slice()
+    pub fn as_slice(&self) -> &[u8] {
+        self.data.as_ref()
     }
 
     /// Returns all indexed paths
@@ -290,8 +283,8 @@ impl IndexReader {
     }
 
     pub fn list_at(&self, offset: usize) -> (u32, u32, u32) {
-        let d: &[u8] = unsafe {
-            let s = self.data.as_slice();
+        let d: &[u8] = {
+            let s = &self.data;
             let (_, right_side) = s.split_at(self.post_index + offset);
             let (d, _) = right_side.split_at(POST_ENTRY_SIZE);
             d
@@ -312,20 +305,18 @@ impl IndexReader {
     fn extract_string_at(&self, offset: usize) -> String {
         let mut index = 0;
         let mut s = String::new();
-        unsafe {
-            let sl = self.as_slice();
-            while sl[offset + index] != 0 {
-                s.push(sl[offset + index] as char);
-                index += 1;
-            }
-            s
+        let sl = self.as_slice();
+        while sl[offset + index] != 0 {
+            s.push(sl[offset + index] as char);
+            index += 1;
         }
+        s
     }
 
     /// Returns the offset and size of a list
     fn find_list(&self, trigram: u32) -> (isize, u32) {
-        let d: &[u8] = unsafe {
-            let s = self.data.as_slice();
+        let d: &[u8] = {
+            let s = &self.data;
             let (_, right_side) = s.split_at(self.post_index);
             let (d, _) = right_side.split_at(POST_ENTRY_SIZE * self.num_post);
             d
@@ -381,8 +372,8 @@ impl<'a, 'b> PostReader<'a, 'b> {
         if count == 0 {
             return None;
         }
-        let view = unsafe {
-            let v = index.data.as_slice();
+        let view = {
+            let v = &index.data;
             let split_point = (index.post_data as usize) + (offset as usize) + 3;
             v.split_at(split_point).1
         };
@@ -488,7 +479,7 @@ impl<'a> PostSet<'a> {
         self.list
     }
     pub fn and(self, trigram: u32) -> Option<Self> {
-        let (mut d, count) = unsafe { Self::make_view(self.index, trigram)? };
+        let (mut d, count) = Self::make_view(self.index, trigram)?;
         let mut fileid = -1;
         let mut h = BTreeSet::new();
         for _ in 0..count {
@@ -508,12 +499,10 @@ impl<'a> PostSet<'a> {
         })
     }
     pub fn or(mut self, trigram: u32) -> Option<Self> {
-        let (mut d, count) = unsafe {
-            if let Some(tup) = Self::make_view(self.index, trigram) {
-                tup
-            } else {
-                return Some(self);
-            }
+        let (mut d, count) = if let Some(tup) = Self::make_view(self.index, trigram) {
+            tup
+        } else {
+            return Some(self);
         };
         let mut fileid = -1;
         // writeln!(io::stderr(), "TRI 0x{:6x}: {}", trigram, count).unwrap();
@@ -528,13 +517,13 @@ impl<'a> PostSet<'a> {
         }
         Some(self)
     }
-    unsafe fn make_view(index: &'a IndexReader, trigram: u32) -> Option<(&'a [u8], usize)> {
+    fn make_view(index: &'a IndexReader, trigram: u32) -> Option<(&'a [u8], usize)> {
         let (count, offset) = index.find_list(trigram);
         if count == 0 {
             // writeln!(io::stderr(), "TRI 0x{:6x}: 0", trigram).unwrap();
             return None;
         }
-        let v = index.data.as_slice();
+        let v = &index.data;
         let split_point = (index.post_data as usize) + (offset as usize) + 3;
         Some((v.split_at(split_point).1, count as usize))
     }

@@ -84,13 +84,12 @@ fn print_indexed_files(idx: &IndexReader) {
 }
 
 fn dump_posting_list(idx: &IndexReader) -> io::Result<()> {
-    let d: &[u8] = unsafe {
-        idx.as_slice()
-            .split_at(idx.post_index)
-            .1
-            .split_at(POST_ENTRY_SIZE * idx.num_post)
-            .0
-    };
+    let d: &[u8] = idx
+        .as_slice()
+        .split_at(idx.post_index)
+        .1
+        .split_at(POST_ENTRY_SIZE * idx.num_post)
+        .0;
     for i in 0..idx.num_post {
         writeln!(
             &mut std::io::stdout(),

@@ -34,7 +34,7 @@ pub struct PostMapReader<'a> {
 impl<'a> PostMapReader<'a> {
     pub fn new(index: &'a IndexReader, id_map: Vec<IdRange>) -> PostMapReader<'a> {
         let _frame = libprofiling::profile("PostMapReader::new");
-        let s = unsafe { index.as_slice() };
+        let s = index.as_slice();
         let mut p = PostMapReader {
             index,
             id_map,
@@ -72,7 +72,7 @@ impl<'a> PostMapReader<'a> {
             self.file_id = u32::MAX;
             return;
         }
-        self.d = unsafe {
+        self.d = {
             let s = self.index.as_slice();
             let split_point = self.index.post_data + self.offset + 3;
             let (_, right_side) = s.split_at(split_point as usize);

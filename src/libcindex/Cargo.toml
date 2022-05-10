@@ -6,7 +6,6 @@ authors = ["Vernon Jones <vernonrjones@gmail.com>"]
 [dependencies]
 byteorder = "1.4"
 log = "0.4"
-memmap = "0.7"
 tempfile = "3.3"
 
 consts = { path = "../consts" }

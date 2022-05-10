@@ -77,27 +77,6 @@ Csearch uses the index stored in $CSEARCHINDEX or, if that variable is unset or
 empty, $HOME/.csearchindex.
 ";
 
-#[cfg(windows)]
-const STDOUT_FILENO: i32 = 1;
-#[cfg(not(windows))]
-const STDOUT_FILENO: i32 = libc::STDOUT_FILENO as i32;
-
-pub fn is_color_output_available() -> bool {
-    let isatty = unsafe { libc::isatty(STDOUT_FILENO) != 0 };
-    if !isatty {
-        return false;
-    }
-    let t = if let Ok(term) = env::var("TERM") {
-        term
-    } else {
-        return true;
-    };
-    if t == "dumb" {
-        return false;
-    }
-    true
-}
-
 pub fn main() {
     libcustomlogger::init(log::LevelFilter::Info).unwrap();
 
@@ -215,7 +194,7 @@ pub fn main() {
             || matches.is_present("visual-studio-format"),
         with_color: !matches.is_present("nocolor")
             && !matches.is_present("visual-studio-format")
-            && is_color_output_available(),
+            && atty::is(atty::Stream::Stdout),
         max_count: matches.value_of("NUM").map(|s| match s.parse::<usize>() {
             Ok(n) => n,
             Err(parse_err) => panic!("NUM: {}", parse_err),

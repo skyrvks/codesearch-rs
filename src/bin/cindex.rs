@@ -44,8 +44,7 @@ fn is_regular_file(meta: FileType) -> bool {
 
 #[cfg(unix)]
 fn is_regular_file(meta: FileType) -> bool {
-    !meta.is_dir()
-        && !meta.is_symlink()
+    meta.is_file()
         && !meta.is_fifo()
         && !meta.is_socket()
         && !meta.is_block_device()
